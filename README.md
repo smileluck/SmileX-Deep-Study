@@ -39,7 +39,8 @@ go build -o deep-study ./server/cmd/server
 
 | 工具 | 接入方式 |
 |---|---|
-| **ZCode** | 开箱即用：`.zcode/skills/` 与 `.zcode/commands/` 已就位，直接 `/study:*` |
+| **任何遵循通用格式的 agent** | `.agents/skills/`（SKILL.md 标准）+ `.agents/commands/` + `AGENTS.md`，开箱即用 |
+| **ZCode** | 原生发现 `.agents/`（`.zcode/` 的通用回退路径），直接 `/study:*` |
 | **Kimi CLI** | 原生读 `AGENTS.md`；在仓库根目录打开后发 `prompts/` 里的通用模板即可 |
 | **WorkBuddy** | 无 `CODEBUDDY.md` 时自动加载 `AGENTS.md`；`.codebuddy/rules/` 已就位 |
 | **Trae** | 设置 → Rules → 勾选“包含 AGENTS.md”；`.trae/rules/deep-study.mdc` 已就位 |
@@ -69,7 +70,7 @@ data/
 ```
 ├── AGENTS.md                  # 权威契约（agent 必读）
 ├── CLAUDE.md / .trae/ / .codebuddy/   # 各家薄适配
-├── .zcode/                    # ZCode skills + 斜杠命令
+├── .agents/                   # 通用 agent 资产：skills（SKILL.md）+ 斜杠命令
 ├── prompts/                   # 通用 prompt 模板
 ├── server/                    # Go 后端（cmd/ + internal/{api,store,fsrsx}）
 ├── web/                       # 前端源码

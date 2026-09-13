@@ -72,7 +72,7 @@
 
 | 工具 | 项目级指令支持 | 核实结果 |
 |---|---|---|
-| ZCode | `<repo>/AGENTS.md` 原生加载；`.zcode/skills/`（SKILL.md）与 `.zcode/commands/`（.md 斜杠命令） | 本机 + [官方文档](https://zcode.z.ai/en/docs/agents)核实 |
+| ZCode | `<repo>/AGENTS.md` 原生加载；`.agents/skills/`（SKILL.md，通用格式，`.zcode/` 同样支持）与 `.agents/commands/`（.md 斜杠命令） | 本机 + [官方文档](https://zcode.z.ai/en/docs/agents)核实 |
 | Kimi CLI | 原生只发现 AGENTS.md（CLAUDE.md 不读，[issue #2401](https://github.com/MoonshotAI/kimi-cli/issues/2401)） | [官方文档](https://moonshotai.github.io/kimi-cli/en/guides/getting-started.html)核实 |
 | Trae | `.trae/rules/*.mdc`（frontmatter: alwaysApply/description/globs）；AGENTS.md 需在设置中开启导入 | [官方文档](https://docs.trae.ai/ide/rules)核实 |
 | WorkBuddy (腾讯 CodeBuddy 系) | `.codebuddy/rules/<name>/RULE.mdc`；`CODEBUDDY.md` 默认全量加载；**无 CODEBUDDY.md 时自动加载 AGENTS.md** | [官方文档](https://www.workbuddy.ai/docs/ide/User-guide/Rules)核实 |

@@ -16,7 +16,7 @@
 SmileX-Deep-Study/
 ├── AGENTS.md                          # 权威契约（agent 必读）
 ├── CLAUDE.md / .trae/rules/ / .codebuddy/rules/   # 薄适配，均指向 AGENTS.md
-├── .zcode/skills/ + .zcode/commands/  # ZCode 技能与斜杠命令
+├── .agents/skills/ + .agents/commands/  # 通用 agent 技能与斜杠命令（ZCode 原生兼容）
 ├── prompts/                           # 通用 prompt（任何工具可复制）
 ├── data/
 │   ├── inbox/                         # UI 上传的原始材料

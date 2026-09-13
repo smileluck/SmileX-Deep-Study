@@ -18,7 +18,9 @@ data/
     ├── mastery.json     # 掌握度 0-5 + 证据链
     ├── review-log.jsonl # 复习日志（只追加）
     └── recall-log.jsonl # 自由回忆答案（待你批改）
-prompts/            # 通用 prompt 模板（内容与 .zcode skills 一致，供任何工具使用）
+prompts/            # 通用 prompt 模板（内容与 skills 一致，供任何工具使用）
+.agents/skills/     # 通用 Agent 技能（SKILL.md 标准格式，ZCode 等原生发现）
+.agents/commands/   # 通用斜杠命令（/study:*，Claude Code 式 command 格式）
 ```
 
 ## 文件格式（严格遵守 frontmatter 字段名）

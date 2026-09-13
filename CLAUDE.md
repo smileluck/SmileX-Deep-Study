@@ -6,5 +6,5 @@
 
 - 学习数据全部是纯文件（`data/` 下的 markdown + frontmatter + JSON），可直接读写；
 - `cards/*.md` 的 `fsrs:` 块、`review-log.jsonl`、`recall-log.jsonl` 只有 Go 服务端可写，你只读；
-- 六条工作流（导入/导师/费曼/复习/自测/诊断）的完整步骤见 `AGENTS.md`；
-- 通用 prompt 模板在 `prompts/`，与 `.zcode/` 下的技能内容一致。
+- 六条工作流（导入/导师/费曼/复习/自测/诊断）的完整步骤见 `AGENTS.md`，技能定义在 `.agents/skills/`（SKILL.md 标准格式）；
+- 通用 prompt 模板在 `prompts/`，与技能内容一致，任何工具可用。

@@ -33,7 +33,7 @@ export interface Workflow {
   name: string
   icon: string
   runner: string
-  zcode_command: string | null
+  command: string | null
   prompt_file: string | null
   description: string
   outputs: string[]

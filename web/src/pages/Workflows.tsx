@@ -72,11 +72,11 @@ export default function Workflows() {
                 </div>
                 <p className="text-[13px] leading-relaxed opacity-70">{f.description}</p>
 
-                {f.zcode_command ? (
+                {f.command ? (
                   <div className="rounded-lg bg-base-200/70 px-3 py-2 font-mono text-xs">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate">{f.zcode_command}</span>
-                      <CopyButton text={f.zcode_command} />
+                      <span className="truncate">{f.command}</span>
+                      <CopyButton text={f.command} />
                     </div>
                   </div>
                 ) : (
@@ -85,7 +85,7 @@ export default function Workflows() {
                   </div>
                 )}
 
-                {f.zcode_command && (
+                {f.command && (
                   <div className="flex items-center justify-between text-xs">
                     <span className="opacity-50">产出：{f.outputs.join(' · ')}</span>
                     {f.prompt_file && (
@@ -116,7 +116,7 @@ export default function Workflows() {
         <div className="card-body p-5 text-[13px] leading-relaxed opacity-75">
           <div className="font-semibold opacity-90">四家 harness 怎么接？</div>
           <ul className="mt-1 list-disc space-y-1 pl-5">
-            <li><b>ZCode</b>：直接用上面的 <code>/study:*</code> 斜杠命令（.zcode/commands 已就位）。</li>
+            <li><b>ZCode / 通用 agent</b>：技能与命令在 <code>.agents/</code>（SKILL.md 通用格式），直接用上面的 <code>/study:*</code> 命令。</li>
             <li><b>Kimi CLI / WorkBuddy</b>：原生读 AGENTS.md（WorkBuddy 无 CODEBUDDY.md 时自动加载），复制「通用 prompt」发给它即可。</li>
             <li><b>Trae</b>：设置 → Rules → 勾选导入 AGENTS.md；.trae/rules/deep-study.mdc 已就位，之后同样用通用 prompt。</li>
             <li>所有 agent 共享同一份 data/ 文件契约 —— 换工具不换数据。</li>
