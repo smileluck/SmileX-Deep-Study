@@ -30,6 +30,7 @@ func Register(r *gin.Engine, st *store.Store) {
 	api := r.Group("/api")
 	{
 		api.GET("/health", func(c *gin.Context) { c.JSON(200, gin.H{"ok": true}) })
+		api.GET("/validate", a.Validate)
 		api.GET("/workflows", a.GetWorkflows)
 
 		api.POST("/materials/upload", a.UploadMaterials)

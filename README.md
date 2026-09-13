@@ -57,7 +57,7 @@ data/
 └── progress/  mastery.json + 复习/回忆日志（追加式）
 ```
 
-红线规则（详见 `AGENTS.md`）：`cards/*.md` 的 `fsrs:` 块与两个日志只有 Go 服务端可写；日志只追加；掌握度变更必须附证据。
+红线规则（详见 `AGENTS.md`）：`cards/*.md` 的 `fsrs:` 块与两个日志只有 Go 服务端可写；日志只追加；掌握度变更必须附证据；**凡写文件的工作流收尾必须跑 `curl -s http://127.0.0.1:8788/api/validate` 把 errors 清零**（硬校验：schema、fsrs 块、日期格式、证据链）。agent 的行为边界由 `roles/` 下的角色定义约束（导师/测验官/初学者/教练/导入员），技能只定义流程——软约束 + 硬校验双层保证产出质量。
 
 ## 技术栈
 
@@ -71,6 +71,7 @@ data/
 ├── AGENTS.md                  # 权威契约（agent 必读）
 ├── CLAUDE.md / CODEBUDDY.md / .trae/ / .codebuddy/   # 各家适配（.codebuddy 副本由 scripts/sync-adapters.sh 从 .agents/ 同步）
 ├── .agents/                   # 通用 agent 资产：skills（SKILL.md）+ 斜杠命令
+├── roles/                     # 角色定义（身份+纪律）：导师/测验官/初学者/教练/导入员
 ├── prompts/                   # 通用 prompt 模板
 ├── server/                    # Go 后端（cmd/ + internal/{api,store,fsrsx}）
 ├── web/                       # 前端源码

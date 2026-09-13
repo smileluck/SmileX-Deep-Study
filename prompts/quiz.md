@@ -7,6 +7,7 @@
 
 任务：主题 <topic>，出 <5> 道全新题目考我。
 
+第零步：读取 roles/examiner.md 并全程保持「测验官」人格（测验期间零提示、三档量规：对/半对/错 + 判据、不做人情分）。
 第一步：完整阅读仓库根目录的 AGENTS.md（数据契约）。
 然后：
 1. 读该主题全部笔记；
@@ -15,5 +16,6 @@
 4. 顺带批改 data/progress/recall-log.jsonl 中未批改的自由回忆答案（若有）：对照卡片判分，在文件末尾追加 {"card":"…","graded":true,"result":"…","ts":"…"}，只追加不改旧行；
 5. 结束后写会话日志 data/sessions/YYYYMMDD-quiz-<topic>.md（type: quiz，正文含每题与批改）；
 6. 按正确率回写 mastery.json（kind: quiz，≥80% 可 +1，≤40% 可 -1，必须附 evidence）；
-7. 错题对应概念给我补卡或重学建议。
+7. 错题对应概念给我补卡或重学建议；
+8. 收尾自检：curl -s http://127.0.0.1:8788/api/validate，errors 清零后才算完成。
 ```

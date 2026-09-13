@@ -19,6 +19,7 @@ data/
     ├── review-log.jsonl # 复习日志（只追加）
     └── recall-log.jsonl # 自由回忆答案（待你批改）
 prompts/            # 通用 prompt 模板（内容与 skills 一致，供任何工具使用）
+roles/              # 角色定义（身份+纪律）：导师/测验官/初学者/教练/导入员，由技能加载
 .agents/skills/     # 通用 Agent 技能（SKILL.md 标准格式，ZCode 等原生发现）
 .agents/commands/   # 通用斜杠命令（/study:*，Claude Code 式 command 格式）
 ```
@@ -116,10 +117,14 @@ notes_updated: []      # 本次更新的笔记 id
 4. 建卡必须带全零 `fsrs:` 块；建笔记必须带完整 frontmatter。
 5. 写完后向用户报告：创建了哪些文件、更新了哪些文件。
 6. 所有日期用 `YYYY-MM-DD`；时间戳用 UTC ISO8601。
+7. **硬校验**：凡写文件的工作流，收尾必须执行 `curl -s http://127.0.0.1:8788/api/validate` 并把 `errors` 清零（有错修复后重跑）；最终报告附校验结果。
+8. **角色纪律**：执行工作流前先加载 `roles/` 下对应角色文件并全程保持该人格——角色定义行为边界，技能定义流程步骤，两者都不可违。
 
 ## 六条工作流
 
 ### W1 导入 `/study:import <inbox 文件名或路径> [topic-slug]`
+
+**角色**：`roles/librarian.md`（导入员）。
 
 1. 读取 `data/inbox/` 中指定文件（PDF/DOCX 等用你可用的解析技能提取文本；无法解析时如实报告）。
 2. 确定或创建 topic（`data/topics/<slug>/manifest.json`，字段：slug/name/goal/created/description）。
@@ -127,9 +132,11 @@ notes_updated: []      # 本次更新的笔记 id
 4. 产出原子笔记（每个独立概念一篇，含 frontmatter 与 links）。
 5. 从笔记起草卡片：每篇笔记 2-5 张，优先"为什么/怎么用/边界在哪"类问题，避免纯定义背诵。
 6. 写 `sessions/…-import-….md` 会话日志，并在 mastery.json 为该 topic 建条目（level 0，kind: import）。
-7. 报告产出清单，提醒用户去 Web UI 开始复习。
+7. 跑 `/api/validate` 清零 errors，报告产出清单与校验结果，提醒用户去 Web UI 开始复习。
 
 ### W2 精读导师 `/study:tutor <topic>`
+
+**角色**：`roles/socratic-tutor.md`（苏格拉底导师）。
 
 1. 读该 topic 的全部笔记 + 来源材料。
 2. **苏格拉底式**：先提问让学习者回答，绝不直接给完整答案；学习者卡住时给**阶梯提示**（提示 1 → 提示 2 → 才给答案）。
@@ -137,6 +144,8 @@ notes_updated: []      # 本次更新的笔记 id
 4. 结束时（用户说"结束"或话题完成）：写会话日志；如有新理解，更新笔记；按需补卡。
 
 ### W3 费曼内化 `/study:feynman <topic 或 note-id>`
+
+**角色**：`roles/curious-novice.md`（聪明的初学者）。
 
 1. 请学习者**用自己的话讲一遍**该主题/笔记。
 2. 你扮演聪明的初学者追问："为什么？""能举个例子吗？""如果 X 变了会怎样？"
@@ -148,6 +157,8 @@ notes_updated: []      # 本次更新的笔记 id
 
 ### W5 自测 `/study:quiz <topic> [数量，默认 5]`
 
+**角色**：`roles/examiner.md`（测验官：三档量规判分，成绩必须输出「题号/判定/判据」表格 + 「正确率：n/N」统计行）。
+
 1. 读该 topic 笔记，**生成全新题目**（禁止复用 cards/ 里的卡面，避免再认冒充回忆）。
 2. 题型混合：概念解释 / 场景应用 / 对比辨析。
 3. 逐题出题 → 学习者作答 → 你批改（指出对错与原因，不给含糊分数）。
@@ -155,6 +166,8 @@ notes_updated: []      # 本次更新的笔记 id
 5. 写会话日志（题目+答案+批改在正文）；按正确率回写 mastery（kind: quiz）。
 
 ### W6 诊断 `/study:diagnose [topic]`
+
+**角色**：`roles/coach.md`（教练：无证据不下结论，区分遗忘与未懂）。
 
 1. 读 mastery.json + review-log.jsonl（统计各 topic 的 Again 率、lapses）+ 近期 sessions。
 2. 产出弱点报告：哪些概念最薄弱、证据是什么（引用具体数据）。

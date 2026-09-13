@@ -149,6 +149,7 @@ level 0-5（0=未接触 … 5=能讲授）。每次变更必须附 evidence（ki
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | POST | /api/materials/upload | multipart 上传 → data/inbox/ |
+| GET  | /api/validate | 数据契约硬校验：扫描 cards/notes/sessions/mastery/materials，返回 errors（schema/fsrs 块/日期/证据链违规）与 warnings（空正文）；agent 工作流收尾必须清零 errors |
 | GET  | /api/materials | inbox + library 列表（含 materials.json） |
 | GET  | /api/topics | 主题列表（含卡片/笔记计数） |
 | GET  | /api/review/queue | 扫描 cards/，返回到期队列（按主题交错排序） |

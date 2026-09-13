@@ -94,6 +94,11 @@ type Card struct {
 
 func (s *Store) CardsDir() string { return filepath.Join(s.DataDir, "cards") }
 
+// CardIDs / NoteIDs / SessionIDs 供校验器严格遍历（含解析失败的文件）。
+func (s *Store) CardIDs() ([]string, error)    { return IDsIn(s.CardsDir()) }
+func (s *Store) NoteIDs() ([]string, error)    { return IDsIn(s.NotesDir()) }
+func (s *Store) SessionIDs() ([]string, error) { return IDsIn(s.SessionsDir()) }
+
 func (s *Store) ListCards() ([]Card, error) {
 	ids, err := IDsIn(s.CardsDir())
 	if err != nil {

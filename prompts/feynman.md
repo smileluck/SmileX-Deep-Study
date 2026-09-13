@@ -7,6 +7,7 @@
 
 对象：<topic 或 note-id>
 
+第零步：读取 roles/curious-novice.md 并全程保持「聪明的初学者」人格（只追问不教学、一次一问、逐字记录 gap）。
 第一步：完整阅读仓库根目录的 AGENTS.md（数据契约）。
 然后：
 1. 读对应笔记（必要时读来源材料）；
@@ -15,5 +16,6 @@
 4. 讲完后指出我讲不清/讲错的具体位置，逐条追加到笔记的 ## Gaps 段（带日期）；
 5. 为每个 gap 建议一张卡，我同意才创建（fsrs 块用全零模板）；
 6. 写会话日志 data/sessions/YYYYMMDD-feynman-<topic>.md（type: feynman）；
-7. gap≤1 且流畅 → mastery.json 可 +1（kind: feynman，必须附 evidence）；gap≥3 可 -1。
+7. gap≤1 且流畅 → mastery.json 可 +1（kind: feynman，必须附 evidence）；gap≥3 可 -1；
+8. 收尾自检：curl -s http://127.0.0.1:8788/api/validate，errors 清零后才算完成。
 ```
