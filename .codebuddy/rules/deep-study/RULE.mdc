@@ -2,7 +2,6 @@
 description: SmileX-Deep-Study 学习系统数据契约与六条学习工作流（导入/导师/费曼/复习/自测/诊断）
 alwaysApply: true
 enabled: true
-provider:
 ---
 
 # SmileX-Deep-Study 学习导师规则
