@@ -1,0 +1,68 @@
+[
+  {
+    "id": "import",
+    "name": "导入材料",
+    "icon": "inbox",
+    "runner": "UI 上传 + Harness 执行",
+    "zcode_command": "/study:import <inbox 文件名> [topic]",
+    "prompt_file": "prompts/import.md",
+    "description": "上传 PDF/DOCX/MD 等材料后，由 harness 提取内容、建主题、写原子笔记、起草 FSRS 复习卡片并归档。",
+    "outputs": ["data/notes/*.md", "data/cards/*.md", "data/sessions/*import*.md", "data/library/materials.json"],
+    "ui_hint": "先在「资料库」页上传文件到 inbox，再到 harness 执行导入命令。"
+  },
+  {
+    "id": "tutor",
+    "name": "精读导师",
+    "icon": "graduation-cap",
+    "runner": "Harness",
+    "zcode_command": "/study:tutor <topic>",
+    "prompt_file": "prompts/tutor.md",
+    "description": "苏格拉底式导师会话：先提问后讲解、阶梯提示、探测误解，会话记录落盘供诊断使用。",
+    "outputs": ["data/sessions/*tutor*.md", "笔记更新", "可能的补卡"],
+    "ui_hint": "适合刚导入的新主题，建立第一层理解。"
+  },
+  {
+    "id": "feynman",
+    "name": "费曼内化",
+    "icon": "lightbulb",
+    "runner": "Harness",
+    "zcode_command": "/study:feynman <topic 或 note-id>",
+    "prompt_file": "prompts/feynman.md",
+    "description": "你用自己的话讲，harness 扮演聪明初学者追问，讲不清的点写回笔记 Gaps 段并建议新卡。",
+    "outputs": ["data/sessions/*feynman*.md", "笔记 ## Gaps 更新", "建议新卡"],
+    "ui_hint": "理解后的内化步骤，gap ≤ 1 可提升掌握度。"
+  },
+  {
+    "id": "review",
+    "name": "间隔复习",
+    "icon": "repeat",
+    "runner": "Web UI（零 LLM）",
+    "zcode_command": null,
+    "prompt_file": null,
+    "description": "FSRS 调度的到期卡片队列：先回忆后揭示，四档评分。支持自由回忆模式（写下答案，之后由自测/诊断工作流批改）。",
+    "outputs": ["卡片 fsrs 块更新", "review-log.jsonl", "recall-log.jsonl"],
+    "ui_hint": "点右上角「开始复习」。每天清空队列即可。"
+  },
+  {
+    "id": "quiz",
+    "name": "检索自测",
+    "icon": "file-question",
+    "runner": "Harness",
+    "zcode_command": "/study:quiz <topic> [题数]",
+    "prompt_file": "prompts/quiz.md",
+    "description": "从笔记生成全新题目（不复用复习卡，避免再认冒充回忆），逐题批改，按正确率回写掌握度，并批改自由回忆答案。",
+    "outputs": ["data/sessions/*quiz*.md", "mastery.json 更新", "recall-log 批改行"],
+    "ui_hint": "与复习互补：复习管记忆保持，自测管真实掌握。"
+  },
+  {
+    "id": "diagnose",
+    "name": "诊断复盘",
+    "icon": "stethoscope",
+    "runner": "Harness",
+    "zcode_command": "/study:diagnose [topic]",
+    "prompt_file": "prompts/diagnose.md",
+    "description": "综合掌握度、复习 Again 率、会话误解记录，产出带证据的弱点报告与定向练习处方（刻意练习闭环）。",
+    "outputs": ["data/sessions/*diagnose*.md", "定向练习卡", "mastery.json 调整"],
+    "ui_hint": "每周跑一次，回答「接下来学什么」。"
+  }
+]

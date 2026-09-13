@@ -1,0 +1,7 @@
+{
+  "slug": "spaced-repetition",
+  "name": "间隔重复与 FSRS",
+  "goal": "吃透 FSRS 调度原理，能给别人讲明白为什么这样安排复习",
+  "created": "2026-09-13",
+  "description": "从遗忘曲线与检索练习出发，理解 FSRS 的 D/S/R 三变量模型、与 SM-2 的差异、评分语义与目标记忆率。"
+}

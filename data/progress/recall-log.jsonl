@@ -1,0 +1,1 @@
+{"answer":"D 是这张卡对我的难度，S 是记忆能撑多少天。评分后 FSRS 会同时更新两者：Again 会让 S 大跌，Good/Easy 推高 S，D 影响间隔增长的斜率。","card":"fsrs-dsr-model-c2","ts":"2026-09-13T13:35:00Z"}

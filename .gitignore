@@ -1,0 +1,14 @@
+# 二进制与构建产物
+deep-study
+web/dist/
+
+# 依赖
+web/node_modules/
+
+# 系统与临时文件
+.DS_Store
+*.log
+*.tmp
+
+# ZCode 会话级规划草稿（skills/commands 是交付物，保留）
+.zcode/plans/
