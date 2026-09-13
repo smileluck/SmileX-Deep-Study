@@ -1,14 +1,30 @@
-# 二进制与构建产物
-deep-study
+# ---- 构建产物 ----
+/deep-study
 web/dist/
+*.test
+*.out
 
-# 依赖
+# ---- 依赖 ----
 web/node_modules/
 
-# 系统与临时文件
+# ---- 环境与密钥 ----
+.env
+.env.*
+!.env.example
+
+# ---- 编辑器 / IDE ----
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ---- 系统与临时文件 ----
 .DS_Store
+Thumbs.db
 *.log
 *.tmp
+*.bak
 
-# ZCode 会话级规划草稿（skills/commands 是交付物，保留）
+# ---- ZCode 会话级草稿（skills/commands 是交付物，保留） ----
 .zcode/plans/
