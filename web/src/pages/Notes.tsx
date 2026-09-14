@@ -1,47 +1,91 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ChevronDown, ChevronRight, Link2, Network, Search } from 'lucide-react'
+import { Link, useParams } from 'react-router-dom'
+import { ChevronDown, ChevronRight, Link2, Network, Search, X } from 'lucide-react'
 import { get, type NoteDetail, type NoteListItem } from '../api'
 import Markdown from '../components/Markdown'
 
-// 简版笔记图谱：圆形布局 + links 连线（个人规模足够）。
+// 笔记详情：列表模式的详情页与图谱模式的浮层面板共用。
+function NoteDetailView({ detail }: { detail: NoteDetail }) {
+  return (
+    <article className="mx-auto max-w-2xl p-8">
+      <h1 className="text-xl font-bold">{String(detail.fm.title ?? detail.id)}</h1>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs opacity-60">
+        <span className="badge badge-ghost">{String(detail.fm.topic ?? '未分类')}</span>
+        {(Array.isArray(detail.fm.tags) ? detail.fm.tags : []).map((t) => (
+          <span key={String(t)} className="badge badge-outline badge-sm">#{String(t)}</span>
+        ))}
+        <span className="font-mono text-[10px] opacity-60">{detail.id}</span>
+      </div>
+
+      {(detail.backlinks.length > 0 || (detail.fm.links as string[] | undefined)?.length) && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
+          <Link2 className="h-3.5 w-3.5 opacity-50" />
+          {(detail.fm.links as string[] | undefined)?.map((l) => (
+            <Link key={l} to={`/notes/${l}`} className="badge badge-sm badge-primary badge-outline">
+              → {l}
+            </Link>
+          ))}
+          {detail.backlinks.map((b) => (
+            <Link key={b} to={`/notes/${b}`} className="badge badge-sm badge-secondary badge-outline">
+              ← {b}
+            </Link>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-6">
+        <Markdown>{detail.body}</Markdown>
+      </div>
+
+      {detail.cards.length > 0 && (
+        <section className="mt-10">
+          <h2 className="text-sm font-semibold">关联卡片（{detail.cards.length}）</h2>
+          <ul className="mt-3 flex flex-col gap-2">
+            {detail.cards.map((c) => (
+              <li key={String(c.id)} className="rounded-xl bg-base-100 p-3.5 text-sm shadow-sm">
+                <div className="font-medium">{String(c.front)}</div>
+                <div className="mt-1.5 whitespace-pre-wrap text-xs opacity-65">{String(c.back)}</div>
+                <div className="mt-2 flex items-center gap-2 text-[10px] opacity-45">
+                  <span className="font-mono">{String(c.id)}</span>
+                  <span>· {String(c.state_name ?? '')}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </article>
+  )
+}
+
+// 单主题笔记图谱：节点均匀分布在圆环上 + links 连线（个人规模足够）。
 function NoteGraph({ notes, selected, onSelect }: {
   notes: NoteListItem[]
-  selected?: string
+  selected?: string | null
   onSelect: (id: string) => void
 }) {
-  const W = 560
-  const H = 420
-  const byTopic = useMemo(() => {
-    const m = new Map<string, NoteListItem[]>()
-    for (const n of notes) {
-      const arr = m.get(n.topic || '') ?? []
-      arr.push(n)
-      m.set(n.topic || '', arr)
-    }
-    return m
-  }, [notes])
+  const W = 800
+  const H = 560
+  const [hover, setHover] = useState<string | null>(null)
 
   const pos = useMemo(() => {
-    const topics = [...byTopic.keys()]
-    const p = new Map<string, { x: number; y: number }>()
-    topics.forEach((t, ti) => {
-      const list = byTopic.get(t)!
-      const ta = (ti / Math.max(1, topics.length)) * Math.PI * 2
-      const ring = topics.length > 1 ? 0.62 : 0
-      const cx = W / 2 + Math.cos(ta) * ring * W * 0.38
-      const cy = H / 2 + Math.sin(ta) * ring * H * 0.36
-      list.forEach((n, ni) => {
-        const na = (ni / Math.max(1, list.length)) * Math.PI * 2 + ti
-        const r = list.length > 1 ? 42 + Math.min(list.length, 8) * 6 : 0
-        p.set(n.id, {
-          x: Math.max(24, Math.min(W - 24, cx + Math.cos(na) * r)),
-          y: Math.max(20, Math.min(H - 20, cy + Math.sin(na) * r)),
-        })
-      })
+    const p = new Map<string, { x: number; y: number; inner: boolean }>()
+    const rOuter = Math.min(W, H) * 0.34
+    const rInner = Math.min(W, H) * 0.23
+    // 节点较多时内外两环交错，避免标签互相挤压。
+    const stagger = notes.length > 10
+    notes.forEach((n, i) => {
+      if (notes.length === 1) {
+        p.set(n.id, { x: W / 2, y: H / 2, inner: false })
+        return
+      }
+      const inner = stagger && i % 2 === 1
+      const r = inner ? rInner : rOuter
+      const a = (i / notes.length) * Math.PI * 2 - Math.PI / 2
+      p.set(n.id, { x: W / 2 + Math.cos(a) * r, y: H / 2 + Math.sin(a) * r, inner })
     })
     return p
-  }, [byTopic])
+  }, [notes])
 
   const edges = useMemo(() => {
     const seen = new Set<string>()
@@ -58,11 +102,8 @@ function NoteGraph({ notes, selected, onSelect }: {
     return out
   }, [notes, pos])
 
-  const topicColors = ['var(--color-primary)', 'var(--color-secondary)', 'var(--color-accent)', 'var(--color-info)', 'var(--color-success)']
-  const topicList = [...byTopic.keys()]
-
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full rounded-xl bg-base-200/40">
+    <svg viewBox={`0 0 ${W} ${H}`} className="h-full w-full">
       {edges.map((e) => {
         const a = pos.get(e.from)!
         const b = pos.get(e.to)!
@@ -70,43 +111,50 @@ function NoteGraph({ notes, selected, onSelect }: {
           <line key={e.key} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="var(--color-base-content)" strokeOpacity={0.18} strokeWidth={1.2} />
         )
       })}
-      {[...byTopic.entries()].map(([topic, list], ti) => (
-        <g key={topic}>
-          {topic && <text x={pos.get(list[0].id)!.x} y={Math.max(12, pos.get(list[0].id)!.y - 46)} textAnchor="middle" fontSize={11} fill={topicColors[ti % topicColors.length]} opacity={0.75}>{topic}</text>}
-          {list.map((n) => {
-            const p = pos.get(n.id)!
-            const isSel = n.id === selected
-            return (
-              <g key={n.id} onClick={() => onSelect(n.id)} style={{ cursor: 'pointer' }}>
-                <circle
-                  cx={p.x}
-                  cy={p.y}
-                  r={isSel ? 9 : 6}
-                  fill={topicColors[ti % topicColors.length]}
-                  fillOpacity={isSel ? 1 : 0.55}
-                  stroke={isSel ? 'var(--color-base-content)' : 'none'}
-                  strokeWidth={1.5}
-                />
-                <text x={p.x} y={p.y + 20} textAnchor="middle" fontSize={9.5} fill="var(--color-base-content)" fillOpacity={0.75}>
-                  {n.title.length > 10 ? n.title.slice(0, 10) + '…' : n.title}
-                </text>
-              </g>
-            )
-          })}
-        </g>
-      ))}
+      {notes.map((n) => {
+        const p = pos.get(n.id)!
+        const isSel = n.id === selected
+        // 内环节点的标签只在悬停/选中时显示，避免与外环标签重叠。
+        const showLabel = !p.inner || isSel || hover === n.id
+        return (
+          <g
+            key={n.id}
+            onClick={() => onSelect(n.id)}
+            onMouseEnter={() => setHover(n.id)}
+            onMouseLeave={() => setHover((h) => (h === n.id ? null : h))}
+            style={{ cursor: 'pointer' }}
+          >
+            <circle
+              cx={p.x}
+              cy={p.y}
+              r={isSel ? 11 : 8}
+              fill="var(--color-primary)"
+              fillOpacity={isSel ? 1 : 0.55}
+              stroke={isSel ? 'var(--color-base-content)' : 'none'}
+              strokeWidth={1.5}
+            />
+            {showLabel && (
+              <text x={p.x} y={p.y + 26} textAnchor="middle" fontSize={12} fill="var(--color-base-content)" fillOpacity={0.8}>
+                {n.title.length > 14 ? n.title.slice(0, 14) + '…' : n.title}
+              </text>
+            )}
+          </g>
+        )
+      })}
     </svg>
   )
 }
 
 export default function Notes() {
   const { id } = useParams()
-  const nav = useNavigate()
   const [notes, setNotes] = useState<NoteListItem[] | null>(null)
   const [detail, setDetail] = useState<NoteDetail | null>(null)
   const [q, setQ] = useState('')
   const [tab, setTab] = useState<'list' | 'graph'>('list')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [graphTopic, setGraphTopic] = useState<string | null>(null)
+  const [graphSelected, setGraphSelected] = useState<string | null>(null)
+  const [graphDetail, setGraphDetail] = useState<NoteDetail | null>(null)
 
   const toggleGroup = (topic: string) => {
     setCollapsed((prev) => {
@@ -155,6 +203,35 @@ export default function Notes() {
     }
     return [...m.entries()].sort(([a], [b]) => a.localeCompare(b))
   }, [filtered])
+
+  // 图谱模式：默认选中第一个主题；当前主题被搜索过滤掉时回退。
+  useEffect(() => {
+    if (tab !== 'graph' || grouped.length === 0) return
+    if (graphTopic === null || !grouped.some(([t]) => t === graphTopic)) {
+      setGraphTopic(grouped[0][0])
+    }
+  }, [tab, grouped, graphTopic])
+
+  // 切换主题 / 切回列表时关闭详情面板。
+  useEffect(() => {
+    setGraphSelected(null)
+    setGraphDetail(null)
+  }, [graphTopic, tab])
+
+  // 图谱节点选中后拉取详情。
+  useEffect(() => {
+    if (!graphSelected) {
+      setGraphDetail(null)
+      return
+    }
+    setGraphDetail(null)
+    get<NoteDetail>(`/api/notes/${graphSelected}`).then(setGraphDetail).catch(() => setGraphDetail(null))
+  }, [graphSelected])
+
+  const graphNotes = useMemo(() => {
+    if (graphTopic === null) return []
+    return grouped.find(([t]) => t === graphTopic)?.[1] ?? []
+  }, [grouped, graphTopic])
 
   return (
     <div className="flex h-full">
@@ -223,68 +300,69 @@ export default function Notes() {
                 })}
               </div>
             )
+          ) : !notes ? (
+            <div className="p-4 text-sm opacity-50">加载中…</div>
+          ) : grouped.length === 0 ? (
+            <div className="p-4 text-sm opacity-50">
+              暂无笔记。笔记由导入工作流（/study:import）生成。
+            </div>
           ) : (
-            notes && <NoteGraph notes={filtered} selected={id} onSelect={(nid) => nav(`/notes/${nid}`)} />
+            <ul className="flex flex-col gap-1">
+              {grouped.map(([topic, list]) => (
+                <li key={topic || '_uncategorized'}>
+                  <button
+                    className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                      graphTopic === topic ? 'bg-primary/10 font-medium text-primary' : 'hover:bg-base-200'
+                    }`}
+                    onClick={() => setGraphTopic(topic)}
+                  >
+                    <span className="font-mono">{topic || '未分类'}</span>
+                    <span className="ml-2 text-[11px] opacity-50">{list.length} 篇</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {!id ? (
-          <div className="flex h-full items-center justify-center text-sm opacity-50">从左侧选择一篇笔记</div>
-        ) : !detail ? (
-          <div className="p-8 text-sm opacity-50">加载中…</div>
-        ) : (
-          <article className="mx-auto max-w-2xl p-8">
-            <h1 className="text-xl font-bold">{String(detail.fm.title ?? detail.id)}</h1>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs opacity-60">
-              <span className="badge badge-ghost">{String(detail.fm.topic ?? '未分类')}</span>
-              {(Array.isArray(detail.fm.tags) ? detail.fm.tags : []).map((t) => (
-                <span key={String(t)} className="badge badge-outline badge-sm">#{String(t)}</span>
-              ))}
-              <span className="font-mono text-[10px] opacity-60">{detail.id}</span>
+      {tab === 'graph' ? (
+        <div className="relative flex-1">
+          {graphTopic === null || graphNotes.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-sm opacity-50">从左侧选择一个主题</div>
+          ) : (
+            <div className="h-full p-6">
+              <NoteGraph notes={graphNotes} selected={graphSelected} onSelect={(nid) => setGraphSelected(nid)} />
             </div>
-
-            {(detail.backlinks.length > 0 || (detail.fm.links as string[] | undefined)?.length) && (
-              <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
-                <Link2 className="h-3.5 w-3.5 opacity-50" />
-                {(detail.fm.links as string[] | undefined)?.map((l) => (
-                  <Link key={l} to={`/notes/${l}`} className="badge badge-sm badge-primary badge-outline">
-                    → {l}
-                  </Link>
-                ))}
-                {detail.backlinks.map((b) => (
-                  <Link key={b} to={`/notes/${b}`} className="badge badge-sm badge-secondary badge-outline">
-                    ← {b}
-                  </Link>
-                ))}
-              </div>
-            )}
-
-            <div className="mt-6">
-              <Markdown>{detail.body}</Markdown>
+          )}
+          {graphSelected && (
+            <div className="absolute inset-y-0 right-0 w-[26rem] max-w-full overflow-y-auto border-l border-base-300 bg-base-100 shadow-xl">
+              <button
+                className="btn btn-ghost btn-sm btn-circle absolute right-3 top-3 z-10"
+                onClick={() => setGraphSelected(null)}
+                aria-label="关闭"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              {!graphDetail ? (
+                <div className="p-8 text-sm opacity-50">加载中…</div>
+              ) : (
+                <NoteDetailView detail={graphDetail} />
+              )}
             </div>
-
-            {detail.cards.length > 0 && (
-              <section className="mt-10">
-                <h2 className="text-sm font-semibold">关联卡片（{detail.cards.length}）</h2>
-                <ul className="mt-3 flex flex-col gap-2">
-                  {detail.cards.map((c) => (
-                    <li key={String(c.id)} className="rounded-xl bg-base-100 p-3.5 text-sm shadow-sm">
-                      <div className="font-medium">{String(c.front)}</div>
-                      <div className="mt-1.5 whitespace-pre-wrap text-xs opacity-65">{String(c.back)}</div>
-                      <div className="mt-2 flex items-center gap-2 text-[10px] opacity-45">
-                        <span className="font-mono">{String(c.id)}</span>
-                        <span>· {String(c.state_name ?? '')}</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-          </article>
-        )}
-      </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto">
+          {!id ? (
+            <div className="flex h-full items-center justify-center text-sm opacity-50">从左侧选择一篇笔记</div>
+          ) : !detail ? (
+            <div className="p-8 text-sm opacity-50">加载中…</div>
+          ) : (
+            <NoteDetailView detail={detail} />
+          )}
+        </div>
+      )}
     </div>
   )
 }
