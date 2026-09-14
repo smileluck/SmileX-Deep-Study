@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	addr := flag.String("addr", "127.0.0.1:8788", "监听地址")
+	addr := flag.String("addr", "127.0.0.1:5574", "监听地址")
 	dataDir := flag.String("data", "data", "数据目录（相对工作目录或绝对路径）")
 	flag.Parse()
 

@@ -16,6 +16,6 @@
 4. 为每个值得学的概念写一篇原子笔记 data/notes/<id>.md（用自己的话重组，配 frontmatter 与 links）；
 5. 每篇笔记起草 2-5 张卡片 data/cards/<id>.md，问"为什么/怎么用/边界在哪"，fsrs: 块原样复制 AGENTS.md 的全零模板；
 6. 写会话日志 data/sessions/YYYYMMDD-import-<topic>.md（type: import），并在 mastery.json 新建该主题条目（level 0）；
-7. 收尾自检：curl -s http://127.0.0.1:8788/api/validate，errors 清零才算完成；
+7. 收尾自检：curl -s http://127.0.0.1:5574/api/validate，errors 清零才算完成；
 8. 报告全部新建/更新文件清单 + 校验结果。
 ```

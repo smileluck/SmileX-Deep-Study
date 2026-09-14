@@ -20,5 +20,5 @@
 2. 处方：每个弱点一个 30-60 分钟可执行练习（小目标+可获反馈）；我同意后为弱项生成定向练习卡（fsrs 块用全零模板）；
 3. 写会话日志 data/sessions/YYYYMMDD-diagnose-<topic>.md（type: diagnose，正文放完整报告）；
 4. 依据证据调整 mastery.json（kind: diagnose，必须附 evidence）；
-5. 收尾自检：curl -s http://127.0.0.1:8788/api/validate，errors 清零后才算完成。
+5. 收尾自检：curl -s http://127.0.0.1:5574/api/validate，errors 清零后才算完成。
 ```

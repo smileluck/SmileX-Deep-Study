@@ -18,5 +18,5 @@ description: 把 data/inbox/ 中的学习材料导入系统：提取内容、建
 4. **写原子笔记**：为材料中每个值得学的独立概念写一篇 `data/notes/<kebab-id>.md`（按角色纪律：自己的话重组、原子化、带 links）。
 5. **起草卡片**：每篇笔记 2-5 张 `data/cards/<note-id>-cN.md`，质量标准见角色铁律 3；frontmatter 的 `fsrs:` 块原样复制 AGENTS.md 的全零模板。
 6. **写会话日志**：`data/sessions/YYYYMMDD-import-<topic>.md`（type: import），并在 `data/progress/mastery.json` 为该 topic 新建条目（level 0，evidence 记 kind: import）。
-7. **收尾自检（必须）**：执行 `curl -s http://127.0.0.1:8788/api/validate`——`errors` 必须清零；有错就修复后重跑，直到干净。
-8. **报告**：列出新建/更新的全部文件 + 校验结果，提醒用户到 Web UI（默认 http://127.0.0.1:8788）查看到期队列开始复习。
+7. **收尾自检（必须）**：执行 `curl -s http://127.0.0.1:5574/api/validate`——`errors` 必须清零；有错就修复后重跑，直到干净。
+8. **报告**：列出新建/更新的全部文件 + 校验结果，提醒用户到 Web UI（默认 http://127.0.0.1:5574）查看到期队列开始复习。

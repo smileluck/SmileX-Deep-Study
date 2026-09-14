@@ -20,4 +20,4 @@ description: 刻意练习诊断：综合掌握度、复习日志（Again率/laps
 3. **开处方**（刻意练习要件：小目标 + 即时反馈）：每个弱点一个 30-60 分钟可执行练习；学习者同意后为弱项生成定向练习卡（fsrs 块用全零模板）。
 4. 写 `data/sessions/YYYYMMDD-diagnose-<topic 或 all>.md`（type: diagnose），正文放完整报告。
 5. 依据证据调整 mastery（kind: diagnose），必须附 evidence。
-6. **收尾自检（必须）**：`curl -s http://127.0.0.1:8788/api/validate`，errors 清零后才算完成。
+6. **收尾自检（必须）**：`curl -s http://127.0.0.1:5574/api/validate`，errors 清零后才算完成。

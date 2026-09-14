@@ -19,12 +19,12 @@ go build -o deep-study ./server/cmd/server
 
 # 3. Run from the repo root (the Workflow page's prompt feature depends on prompts/ at the root)
 ./deep-study
-# → http://127.0.0.1:8788
+# → http://127.0.0.1:5574
 ```
 
-Dev mode: `./deep-study` (port 8788) + `cd web && pnpm dev` (port 5173, `/api` proxy pre-configured).
+Dev mode: `./deep-study` (port 5574) + `cd web && pnpm dev` (port 5573, `/api` proxy pre-configured).
 
-Customization: `./deep-study -addr 0.0.0.0:8788 -data /path/to/data`
+Customization: `./deep-study -addr 0.0.0.0:5574 -data /path/to/data`
 
 ## Six Workflows
 
@@ -59,7 +59,7 @@ data/
 └── progress/  mastery.json + append-only review/recall logs
 ```
 
-Red-line rules (see `AGENTS.md` for details): the `fsrs:` block in `cards/*.md` and the two log files are writable **only by the Go server**; logs are append-only; every mastery change must carry evidence; **any file-writing workflow must finish by running** **`curl -s http://127.0.0.1:8788/api/validate`** **and reducing** **`errors`** **to zero** (hard validation: schema, fsrs block, date formats, evidence chain). The agent's behavioral boundaries are constrained by role definitions under `roles/` (tutor / examiner / curious novice / coach / librarian), while skills define only the procedure — soft constraints plus hard validation together guarantee output quality.
+Red-line rules (see `AGENTS.md` for details): the `fsrs:` block in `cards/*.md` and the two log files are writable **only by the Go server**; logs are append-only; every mastery change must carry evidence; **any file-writing workflow must finish by running** **`curl -s http://127.0.0.1:5574/api/validate`** **and reducing** **`errors`** **to zero** (hard validation: schema, fsrs block, date formats, evidence chain). The agent's behavioral boundaries are constrained by role definitions under `roles/` (tutor / examiner / curious novice / coach / librarian), while skills define only the procedure — soft constraints plus hard validation together guarantee output quality.
 
 ## Tech Stack
 

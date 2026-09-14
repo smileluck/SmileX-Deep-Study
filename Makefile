@@ -10,7 +10,7 @@ GOARCH ?= amd64
 help: ## 显示可用目标
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-8s %s\n", $$1, $$2}'
 
-dev: ## 一键调试：Go 后端 :8788 + Vite 前端 :5173（Ctrl+C 同时退出）
+dev: ## 一键调试：Go 后端 :5574 + Vite 前端 :5573（Ctrl+C 同时退出）
 	@test -d web/node_modules || (cd web && $(PNPM) install)
 	@tmp=$$(mktemp -d); \
 	trap 'kill %1 2>/dev/null; rm -rf "$$tmp"' EXIT INT TERM; \
@@ -22,7 +22,7 @@ web-build: ## 仅构建前端（web/dist）
 
 build: web-build ## 一键打包本机平台：前端构建 + go:embed 内嵌 → ./deep-study
 	CGO_ENABLED=0 $(GO) build -trimpath -ldflags="-s -w" -o $(BIN) ./server/cmd/server
-	@echo "打包完成：./$(BIN)  （运行后访问 http://127.0.0.1:8788）"
+	@echo "打包完成：./$(BIN)  （运行后访问 http://127.0.0.1:5574）"
 
 cross: web-build ## 交叉编译：make cross GOOS=linux GOARCH=amd64 → ./deep-study-linux-amd64
 	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO) build -trimpath -ldflags="-s -w" -o $(BIN)-$(GOOS)-$(GOARCH) ./server/cmd/server

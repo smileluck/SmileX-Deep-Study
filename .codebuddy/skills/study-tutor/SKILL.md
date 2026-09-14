@@ -22,5 +22,5 @@ description: 苏格拉底式精读导师：围绕一个学习主题向学习者�
 
 1. 写 `data/sessions/YYYYMMDD-tutor-<topic>.md`（type: tutor）：正文记录关键问答，frontmatter 填 `misconceptions`（逐条）、`outcomes`、`cards_created`、`notes_updated`。
 2. 如产生新理解 → 更新对应笔记；如发现值得巩固的点 → 征得同意后补卡（fsrs 块用全零模板）。
-3. **收尾自检（必须）**：`curl -s http://127.0.0.1:8788/api/validate`，errors 清零后才算完成。
+3. **收尾自检（必须）**：`curl -s http://127.0.0.1:5574/api/validate`，errors 清零后才算完成。
 4. 向学习者总结：今天澄清了什么、还剩什么没讲透。

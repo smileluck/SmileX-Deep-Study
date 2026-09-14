@@ -21,4 +21,4 @@ description: 检索练习自测：从笔记生成全新题目（不复用复习�
 5. 写 `data/sessions/YYYYMMDD-quiz-<topic>.md`（type: quiz）：正文包含每题、答案与批改，**必须含角色要求的成绩表与「正确率：n/N」统计行**。
 6. 掌握度回写（kind: quiz）：正确率 ≥80% 可 +1；≤40% 可 -1；其余不动。evidence 里写「n/N 正确」。
 7. 错题对应的概念 → 建议补卡或安排重学。
-8. **收尾自检（必须）**：`curl -s http://127.0.0.1:8788/api/validate`，errors 清零后才算完成。
+8. **收尾自检（必须）**：`curl -s http://127.0.0.1:5574/api/validate`，errors 清零后才算完成。

@@ -16,4 +16,4 @@ description: 费曼式内化：让学习者用自己的话讲解，你扮演聪�
 5. 为每个 gap 建议一张卡（front 问法对应 gap），学习者同意才落盘（fsrs 块用全零模板）。
 6. 写 `data/sessions/YYYYMMDD-feynman-<topic>.md`（type: feynman）。
 7. 掌握度回写（`data/progress/mastery.json`，kind: feynman）：gap ≤1 且讲解流畅可 +1；gap ≥3 可 -1。必须附 evidence。
-8. **收尾自检（必须）**：`curl -s http://127.0.0.1:8788/api/validate`，errors 清零后才算完成。
+8. **收尾自检（必须）**：`curl -s http://127.0.0.1:5574/api/validate`，errors 清零后才算完成。

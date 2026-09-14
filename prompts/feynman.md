@@ -17,5 +17,5 @@
 5. 为每个 gap 建议一张卡，我同意才创建（fsrs 块用全零模板）；
 6. 写会话日志 data/sessions/YYYYMMDD-feynman-<topic>.md（type: feynman）；
 7. gap≤1 且流畅 → mastery.json 可 +1（kind: feynman，必须附 evidence）；gap≥3 可 -1；
-8. 收尾自检：curl -s http://127.0.0.1:8788/api/validate，errors 清零后才算完成。
+8. 收尾自检：curl -s http://127.0.0.1:5574/api/validate，errors 清零后才算完成。
 ```

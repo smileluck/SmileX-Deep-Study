@@ -17,5 +17,5 @@
 5. 结束后写会话日志 data/sessions/YYYYMMDD-quiz-<topic>.md（type: quiz，正文含每题与批改）；
 6. 按正确率回写 mastery.json（kind: quiz，≥80% 可 +1，≤40% 可 -1，必须附 evidence）；
 7. 错题对应概念给我补卡或重学建议；
-8. 收尾自检：curl -s http://127.0.0.1:8788/api/validate，errors 清零后才算完成。
+8. 收尾自检：curl -s http://127.0.0.1:5574/api/validate，errors 清零后才算完成。
 ```

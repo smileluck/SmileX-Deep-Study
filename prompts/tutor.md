@@ -15,5 +15,5 @@
 3. 主动用典型错误场景反问我，探测误解；
 4. 一次只问一个问题，问题锚定在材料范围内；
 5. 我说"结束"时：写会话日志 data/sessions/YYYYMMDD-tutor-<topic>.md（type: tutor，记录误解与产出），必要时更新笔记、征得我同意后补卡；
-6. 收尾自检：curl -s http://127.0.0.1:8788/api/validate，errors 清零后才算完成。
+6. 收尾自检：curl -s http://127.0.0.1:5574/api/validate，errors 清零后才算完成。
 ```

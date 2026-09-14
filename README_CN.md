@@ -19,12 +19,12 @@ go build -o deep-study ./server/cmd/server
 
 # 3. 在仓库根目录运行（工作流页的通用 prompt 功能依赖根目录下的 prompts/）
 ./deep-study
-# → http://127.0.0.1:8788
+# → http://127.0.0.1:5574
 ```
 
-开发模式：`./deep-study`（8788）+ `cd web && pnpm dev`（5173，已配 /api 代理）。
+开发模式：`./deep-study`（5574）+ `cd web && pnpm dev`（5573，已配 /api 代理）。
 
-自定义：`./deep-study -addr 0.0.0.0:8788 -data /path/to/data`
+自定义：`./deep-study -addr 0.0.0.0:5574 -data /path/to/data`
 
 ## 六条工作流
 
@@ -59,7 +59,7 @@ data/
 └── progress/  mastery.json + 复习/回忆日志（追加式）
 ```
 
-红线规则（详见 `AGENTS.md`）：`cards/*.md` 的 `fsrs:` 块与两个日志只有 Go 服务端可写；日志只追加；掌握度变更必须附证据；**凡写文件的工作流收尾必须跑 `curl -s http://127.0.0.1:8788/api/validate` 把 errors 清零**（硬校验：schema、fsrs 块、日期格式、证据链）。agent 的行为边界由 `roles/` 下的角色定义约束（导师/测验官/初学者/教练/导入员），技能只定义流程——软约束 + 硬校验双层保证产出质量。
+红线规则（详见 `AGENTS.md`）：`cards/*.md` 的 `fsrs:` 块与两个日志只有 Go 服务端可写；日志只追加；掌握度变更必须附证据；**凡写文件的工作流收尾必须跑 `curl -s http://127.0.0.1:5574/api/validate` 把 errors 清零**（硬校验：schema、fsrs 块、日期格式、证据链）。agent 的行为边界由 `roles/` 下的角色定义约束（导师/测验官/初学者/教练/导入员），技能只定义流程——软约束 + 硬校验双层保证产出质量。
 
 ## 技术栈
 
