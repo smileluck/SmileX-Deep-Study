@@ -1,80 +1,83 @@
-# SmileX-Deep-Study · 个人学习舱
+# SmileX-Deep-Study · Personal Learning Cockpit
 
-> **文件即数据库 · AGENTS.md 即契约 · harness 即导师 · Go 单二进制即驾驶舱。系统零 LLM 接入。**
+**English** | [简体中文](README_CN.md)
 
-把学习闭环拆成两半：**理解类工作**（导入提取、苏格拉底导师、费曼追问、出题批改、弱点诊断）交给你已有的 agent harness（ZCode / Trae / Kimi CLI / WorkBuddy）；**调度类工作**（FSRS 间隔重复、统计、管理界面）由本系统的 Go 单二进制完成。所有数据都是纯 Markdown + JSON 文件，任何工具都能直接读写。
+> **Files are the database · AGENTS.md is the contract · your agent harness is the tutor · a single Go binary is the cockpit. The system itself has zero LLM integration.**
 
-理论依据与设计差距分析见 [docs/00-theory-gap-analysis.md](docs/00-theory-gap-analysis.md)，架构与数据契约见 [docs/01-architecture.md](docs/01-architecture.md)。
+The learning loop is split in half: **understanding work** (import & extraction, Socratic tutoring, Feynman-style probing, quiz grading, weakness diagnosis) is done by the agent harness you already use (ZCode / Trae / Kimi CLI / WorkBuddy); **scheduling work** (FSRS spaced repetition, statistics, the management UI) is handled by this system's single Go binary. All data is plain Markdown + JSON files — any tool can read and write them directly.
 
-## 快速开始
+See [docs/00-theory-gap-analysis.md](docs/00-theory-gap-analysis.md) for the theoretical foundation and design-gap analysis, and [docs/01-architecture.md](docs/01-architecture.md) for the architecture and data contract.
+
+## Quick Start
 
 ```bash
-# 1. 构建前端（首次或前端有改动时）
+# 1. Build the frontend (first time, or after frontend changes)
 cd web && pnpm install && pnpm build && cd ..
 
-# 2. 构建单二进制（会把 web/dist 内嵌进去）
+# 2. Build the single binary (web/dist is embedded via go:embed)
 go build -o deep-study ./server/cmd/server
 
-# 3. 在仓库根目录运行（工作流页的通用 prompt 功能依赖根目录下的 prompts/）
+# 3. Run from the repo root (the Workflow page's prompt feature depends on prompts/ at the root)
 ./deep-study
 # → http://127.0.0.1:8788
 ```
 
-开发模式：`./deep-study`（8788）+ `cd web && pnpm dev`（5173，已配 /api 代理）。
+Dev mode: `./deep-study` (port 8788) + `cd web && pnpm dev` (port 5173, `/api` proxy pre-configured).
 
-自定义：`./deep-study -addr 0.0.0.0:8788 -data /path/to/data`
+Customization: `./deep-study -addr 0.0.0.0:8788 -data /path/to/data`
 
-## 六条工作流
+## Six Workflows
 
-| 工作流 | 执行者 | 用法 |
-|---|---|---|
-| W1 导入 | UI 上传 + harness | 网页「资料库」拖入文件 → 在 harness 里执行 `/study:import <文件名> [topic]` |
-| W2 精读导师 | harness | `/study:tutor <topic>` —— 苏格拉底对话，先提问后讲解，阶梯提示 |
-| W3 费曼内化 | harness | `/study:feynman <topic|note>` —— 你讲它追问，gap 写回笔记 |
-| W4 间隔复习 | Web UI（零 LLM） | 「复习」页：先回忆后揭示，四档评分，FSRS 调度 |
-| W5 检索自测 | harness | `/study:quiz <topic> [n]` —— 全新题目 + 批改 + 掌握度回写 |
-| W6 诊断复盘 | harness | `/study:diagnose [topic]` —— 弱点报告 + 定向练习（刻意练习闭环） |
+| Workflow                   | Executed by         | Usage                                                                                                |
+| -------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------- |
+| W1 Import                  | UI upload + harness | Drag a file into the "Library" page → run `/study:import <filename> [topic]` in your harness         |
+| W2 Reading Tutor           | harness             | `/study:tutor <topic>` — Socratic dialogue: questions first, tiered hints, never the answer up front |
+| W3 Feynman Internalization | harness             | `/study:feynman <topic\|note>` — you explain, it probes; gaps are written back into the note         |
+| W4 Spaced Review           | Web UI (zero LLM)   | "Review" page: recall first, then reveal; 4-level grading; FSRS scheduling                           |
+| W5 Retrieval Quiz          | harness             | `/study:quiz <topic> [n]` — brand-new questions + grading + mastery write-back                       |
+| W6 Diagnosis               | harness             | `/study:diagnose [topic]` — weakness report + targeted drills (a deliberate-practice loop)           |
 
-## 四家 harness 怎么接
+## Harness Integrations
 
-| 工具 | 接入方式 |
-|---|---|
-| **任何遵循通用格式的 agent** | `.agents/skills/`（SKILL.md 标准）+ `.agents/commands/` + `AGENTS.md`，开箱即用 |
-| **ZCode** | 原生发现 `.agents/`（`.zcode/` 的通用回退路径），直接 `/study:*` |
-| **Kimi CLI** | 原生读 `AGENTS.md`；在仓库根目录打开后发 `prompts/` 里的通用模板即可 |
-| **WorkBuddy** | 完整适配：`CODEBUDDY.md` 默认全量加载 + `.codebuddy/{rules,skills,commands}/`（`/study:*` 命令与技能就位） |
-| **Trae** | 设置 → Rules → 勾选“包含 AGENTS.md”；`.trae/rules/deep-study.mdc` 已就位 |
+| Tool                                      | How it connects                                                                                                                          |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **Any agent following the common format** | `.agents/skills/` (SKILL.md standard) + `.agents/commands/` + `AGENTS.md` — works out of the box                                         |
+| **ZCode**                                 | Natively discovers `.agents/` (the generic fallback path of `.zcode/`); `/study:*` commands ready                                        |
+| **Kimi CLI**                              | Natively reads `AGENTS.md`; open the repo root and paste the universal templates from `prompts/`                                         |
+| **WorkBuddy**                             | Full adaptation: `CODEBUDDY.md` loaded by default + `.codebuddy/{rules,skills,commands}/` (with `/study:*` commands and skills in place) |
+| **Trae**                                  | Settings → Rules → enable "Include AGENTS.md"; `.trae/rules/deep-study.mdc` is ready                                                     |
 
-“工作流”页面有为每个工作流准备的**一键复制命令与通用 prompt**（任何工具可用）。
+The "Workflow" page provides **one-click copyable commands and universal prompts** for every workflow, usable by any tool.
 
-## 数据都在哪
+## Where the Data Lives
 
 ```
 data/
-├── inbox/     上传的原始材料        ├── notes/     原子笔记（含 ## Gaps）
-├── library/   归档材料 + 索引       ├── cards/     卡片（内嵌 FSRS 调度状态）
-├── topics/    主题清单              ├── sessions/  导师/费曼/自测/诊断会话日志
-└── progress/  mastery.json + 复习/回忆日志（追加式）
+├── inbox/     Raw uploaded materials       ├── notes/     Atomic notes (with a ## Gaps section)
+├── library/   Archived materials + index   ├── cards/     Cards (FSRS scheduling state embedded)
+├── topics/    Topic manifests              ├── sessions/  Tutor/Feynman/quiz/diagnose session logs
+└── progress/  mastery.json + append-only review/recall logs
 ```
 
-红线规则（详见 `AGENTS.md`）：`cards/*.md` 的 `fsrs:` 块与两个日志只有 Go 服务端可写；日志只追加；掌握度变更必须附证据；**凡写文件的工作流收尾必须跑 `curl -s http://127.0.0.1:8788/api/validate` 把 errors 清零**（硬校验：schema、fsrs 块、日期格式、证据链）。agent 的行为边界由 `roles/` 下的角色定义约束（导师/测验官/初学者/教练/导入员），技能只定义流程——软约束 + 硬校验双层保证产出质量。
+Red-line rules (see `AGENTS.md` for details): the `fsrs:` block in `cards/*.md` and the two log files are writable **only by the Go server**; logs are append-only; every mastery change must carry evidence; **any file-writing workflow must finish by running** **`curl -s http://127.0.0.1:8788/api/validate`** **and reducing** **`errors`** **to zero** (hard validation: schema, fsrs block, date formats, evidence chain). The agent's behavioral boundaries are constrained by role definitions under `roles/` (tutor / examiner / curious novice / coach / librarian), while skills define only the procedure — soft constraints plus hard validation together guarantee output quality.
 
-## 技术栈
+## Tech Stack
 
-- **后端**：Go + gin + [go-fsrs](https://github.com/open-spaced-repetition/go-fsrs)（FSRS 官方实现，目标记忆率 0.90）+ yaml.Node 定向改写 frontmatter（保留 agent 写入的额外字段）
-- **前端**：Vite + React 19 + TypeScript + Tailwind 4 + daisyUI 5，`go:embed` 内嵌进二进制
-- **部署**：一个静态二进制 + `data/` 目录，无运行时依赖
+- **Backend**: Go + gin + [go-fsrs](https://github.com/open-spaced-repetition/go-fsrs) (official FSRS implementation, target retention 0.90) + yaml.Node-based targeted frontmatter rewriting (preserves any extra fields the agent wrote)
+- **Frontend**: Vite + React 19 + TypeScript + Tailwind 4 + daisyUI 5, embedded into the binary via `go:embed`
+- **Deployment**: one static binary + a `data/` directory, no runtime dependencies
 
-## 目录结构
+## Repository Layout
 
 ```
-├── AGENTS.md                  # 权威契约（agent 必读）
-├── CLAUDE.md / CODEBUDDY.md / .trae/ / .codebuddy/   # 各家适配（.codebuddy 副本由 scripts/sync-adapters.sh 从 .agents/ 同步）
-├── .agents/                   # 通用 agent 资产：skills（SKILL.md）+ 斜杠命令
-├── roles/                     # 角色定义（身份+纪律）：导师/测验官/初学者/教练/导入员
-├── prompts/                   # 通用 prompt 模板
-├── server/                    # Go 后端（cmd/ + internal/{api,store,fsrsx}）
-├── web/                       # 前端源码
-├── docs/                      # 理论差距分析 + 架构文档
-└── gui-test-screenshots/      # GUI 测试证据截图
+├── AGENTS.md                  # The authoritative contract (required reading for agents)
+├── CLAUDE.md / CODEBUDDY.md / .trae/ / .codebuddy/   # Per-tool adapters (.codebuddy copies are synced from .agents/ by scripts/sync-adapters.sh)
+├── .agents/                   # Generic agent assets: skills (SKILL.md) + slash commands
+├── roles/                     # Role definitions (identity + discipline): tutor / examiner / novice / coach / librarian
+├── prompts/                   # Universal prompt templates
+├── server/                    # Go backend (cmd/ + internal/{api,store,fsrsx})
+├── web/                       # Frontend source
+├── docs/                      # Theory gap analysis + architecture docs
+└── gui-test-screenshots/      # GUI test evidence screenshots
 ```
+
