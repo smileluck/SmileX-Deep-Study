@@ -58,7 +58,7 @@ back: |
   一句话即可，避免照抄原文。
 created: 2026-09-13
 fsrs:                             # ★ 禁区：只有 Go 服务端可写
-  due: 2026-09-13T00:00:00Z
+  due: "2026-09-13T00:00:00Z"     # ★ 必须加引号：裸写会被 YAML 解析成时间对象，服务端 normalizeTimes 见零点整会降级为 2026-09-13，导致 FSRS 解析失败
   stability: 0
   difficulty: 0
   elapsed_days: 0

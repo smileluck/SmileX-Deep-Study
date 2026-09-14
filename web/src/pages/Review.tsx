@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Eye, PenLine, PartyPopper, Repeat } from 'lucide-react'
-import { get, post, type QueueCard } from '../api'
+import { get, post, type MasteryResp, type QueueCard, type Topic } from '../api'
 
 // 复习播放器：先回忆后揭示（检索练习），四档自评走 FSRS；
-// 自由回忆模式把答案写给 harness 事后批改。
+// 自由回忆模式把答案写给 harness 事后批改。支持按主题过滤队列。
 export default function Review() {
   const [queue, setQueue] = useState<QueueCard[] | null>(null)
   const [idx, setIdx] = useState(0)
@@ -15,21 +15,57 @@ export default function Review() {
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(0)
   const [err, setErr] = useState('')
+  const [topic, setTopic] = useState('')
+  const [topics, setTopics] = useState<Topic[]>([])
+  const [dueByTopic, setDueByTopic] = useState<Record<string, number>>({})
 
   const load = useCallback(() => {
     setQueue(null)
     setIdx(0)
     setDone(0)
     setErr('')
-    get<{ cards: QueueCard[] }>('/api/review/queue')
+    const q = topic ? `?topic=${encodeURIComponent(topic)}` : ''
+    get<{ cards: QueueCard[] }>(`/api/review/queue${q}`)
       .then((r) => setQueue(r.cards))
       .catch((e) => setErr(String(e.message ?? e)))
-  }, [])
+    get<MasteryResp>('/api/mastery')
+      .then((r) => {
+        const m: Record<string, number> = {}
+        for (const [k, v] of Object.entries(r.per_topic ?? {})) m[k] = v.due
+        setDueByTopic(m)
+      })
+      .catch(() => {})
+  }, [topic])
 
   useEffect(load, [load])
 
+  useEffect(() => {
+    get<Topic[]>('/api/topics')
+      .then(setTopics)
+      .catch(() => {})
+  }, [])
+
   const card = queue?.[idx]
   const total = queue?.length ?? 0
+
+  const topicSlugs = Array.from(new Set([...topics.map((t) => t.slug), ...Object.keys(dueByTopic)]))
+  const picker =
+    topicSlugs.length > 0 ? (
+      <select
+        className="select select-bordered select-sm max-w-48"
+        value={topic}
+        onChange={(e) => setTopic(e.target.value)}
+        title="选择要复习的主题"
+      >
+        <option value="">全部主题</option>
+        {topicSlugs.map((s) => (
+          <option key={s} value={s}>
+            {topics.find((t) => t.slug === s)?.name || s}
+            {dueByTopic[s] ? `（${dueByTopic[s]} 到期）` : ''}
+          </option>
+        ))}
+      </select>
+    ) : null
 
   const grade = useCallback(
     async (rating: number) => {
@@ -78,7 +114,7 @@ export default function Review() {
       await post('/api/review/recall', { id: card.id, answer: recallText.trim() })
       setRecallSaved(true)
     } catch (e) {
-      setErr(String((e.message ?? e)))
+      setErr(String((e as Error).message))
     }
   }
 
@@ -93,11 +129,16 @@ export default function Review() {
   if (total === 0)
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
+        {picker}
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success/15 text-success">
           <PartyPopper className="h-8 w-8" />
         </div>
         <h1 className="text-lg font-bold">
-          {done > 0 ? `今日队列完成，共复习 ${done} 张` : '当前没有到期卡片'}
+          {done > 0
+            ? `队列完成，共复习 ${done} 张`
+            : topic
+              ? '该主题当前没有到期卡片'
+              : '当前没有到期卡片'}
         </h1>
         <p className="max-w-md text-sm opacity-60">
           FSRS 会把下次复习安排在记忆临界点上。空档期可以去 harness 里跑一次自测或费曼
@@ -117,9 +158,12 @@ export default function Review() {
   return (
     <div className="mx-auto flex h-full max-w-2xl flex-col p-8">
       <div className="flex items-center justify-between text-sm">
-        <span className="opacity-60">
-          第 {idx + 1} / {total} 张{done > 0 ? ` · 已完成 ${done}` : ''}
-        </span>
+        <div className="flex items-center gap-3">
+          {picker}
+          <span className="opacity-60">
+            第 {idx + 1} / {total} 张{done > 0 ? ` · 已完成 ${done}` : ''}
+          </span>
+        </div>
         <div className="flex items-center gap-2">
           <label className="label cursor-pointer gap-1.5 text-xs">
             <input

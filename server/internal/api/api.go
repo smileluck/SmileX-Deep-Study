@@ -202,9 +202,13 @@ func (a *API) ReviewQueue(c *gin.Context) {
 		errJSON(c, 500, err)
 		return
 	}
+	topic := c.Query("topic")
 	now := time.Now()
 	var due []store.Card
 	for _, card := range cards {
+		if topic != "" && str(card.FM["topic"]) != topic {
+			continue
+		}
 		d := cardDue(card)
 		if d.IsZero() || !d.After(now) {
 			due = append(due, card)

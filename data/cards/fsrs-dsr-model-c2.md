@@ -10,13 +10,13 @@ back: |
     每次评分后 FSRS 用评分与当前 D/S 一起更新两者：难度高则间隔增长慢，Good/Easy 推高 S，Again 大幅降低 S。
 created: 2026-09-13
 fsrs:
-    due: "2026-09-13T13:46:02Z"
+    due: "2026-09-19T08:01:52Z"
     stability: 4.1386
     difficulty: 5.1443
     elapsed_days: 0
-    scheduled_days: 0
-    reps: 1
+    scheduled_days: 5
+    reps: 2
     lapses: 0
-    state: 1
-    last_review: "2026-09-13T13:36:02Z"
+    state: 2
+    last_review: "2026-09-14T08:01:52Z"
 ---

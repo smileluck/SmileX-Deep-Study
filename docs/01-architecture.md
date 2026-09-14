@@ -67,7 +67,7 @@ back: |
   可提取性 R 从 100% 衰减到目标阈值（如 90%）所需的天数。
 created: 2026-09-13
 fsrs:                          # ★ 只有 Go 服务端可写
-  due: 2026-09-13T00:00:00Z
+  due: "2026-09-13T00:00:00Z"  # ★ 必须加引号：裸写会被 YAML 当成时间对象，零点整会被服务端降级为纯日期而解析失败
   stability: 0
   difficulty: 0
   elapsed_days: 0
@@ -152,7 +152,7 @@ level 0-5（0=未接触 … 5=能讲授）。每次变更必须附 evidence（ki
 | GET  | /api/validate | 数据契约硬校验：扫描 cards/notes/sessions/mastery/materials，返回 errors（schema/fsrs 块/日期/证据链违规）与 warnings（空正文）；agent 工作流收尾必须清零 errors |
 | GET  | /api/materials | inbox + library 列表（含 materials.json） |
 | GET  | /api/topics | 主题列表（含卡片/笔记计数） |
-| GET  | /api/review/queue | 扫描 cards/，返回到期队列（按主题交错排序） |
+| GET  | /api/review/queue | 扫描 cards/，返回到期队列（按主题交错排序；支持 `?topic=<slug>` 只复习指定主题） |
 | POST | /api/review/grade | {id, rating:1-4} → go-fsrs 重写 frontmatter + 追加日志 |
 | POST | /api/review/recall | {id, answer} → 追加 recall-log.jsonl |
 | GET  | /api/notes / /api/notes/:id | 笔记列表（含反链）/ 详情 |

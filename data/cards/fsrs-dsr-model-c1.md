@@ -10,13 +10,13 @@ back: |
     S 翻倍，间隔近似翻倍——它是间隔增长的引擎。
 created: 2026-09-13
 fsrs:
-    due: "2026-09-13T13:42:45Z"
+    due: "2026-09-19T08:01:51Z"
     stability: 4.1386
     difficulty: 5.1443
     elapsed_days: 0
-    scheduled_days: 0
-    reps: 1
+    scheduled_days: 5
+    reps: 2
     lapses: 0
-    state: 1
-    last_review: "2026-09-13T13:32:45Z"
+    state: 2
+    last_review: "2026-09-14T08:01:51Z"
 ---
