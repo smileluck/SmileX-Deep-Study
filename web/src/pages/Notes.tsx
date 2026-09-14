@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Link2, Network, Search } from 'lucide-react'
+import { ChevronDown, ChevronRight, Link2, Network, Search } from 'lucide-react'
 import { get, type NoteDetail, type NoteListItem } from '../api'
 import Markdown from '../components/Markdown'
 
@@ -106,6 +106,19 @@ export default function Notes() {
   const [detail, setDetail] = useState<NoteDetail | null>(null)
   const [q, setQ] = useState('')
   const [tab, setTab] = useState<'list' | 'graph'>('list')
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+
+  const toggleGroup = (topic: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(topic)) {
+        next.delete(topic)
+      } else {
+        next.add(topic)
+      }
+      return next
+    })
+  }
 
   useEffect(() => {
     get<NoteListItem[]>('/api/notes').then(setNotes).catch(() => setNotes([]))
@@ -131,6 +144,17 @@ export default function Notes() {
         (n.tags ?? []).some((t) => String(t).toLowerCase().includes(s)),
     )
   }, [notes, q])
+
+  const grouped = useMemo(() => {
+    const m = new Map<string, NoteListItem[]>()
+    for (const n of filtered) {
+      const key = n.topic || ''
+      const arr = m.get(key) ?? []
+      arr.push(n)
+      m.set(key, arr)
+    }
+    return [...m.entries()].sort(([a], [b]) => a.localeCompare(b))
+  }, [filtered])
 
   return (
     <div className="flex h-full">
@@ -162,24 +186,42 @@ export default function Notes() {
                 暂无笔记。笔记由导入工作流（/study:import）生成。
               </div>
             ) : (
-              <ul className="flex flex-col gap-1">
-                {filtered.map((n) => (
-                  <li key={n.id}>
-                    <Link
-                      to={`/notes/${n.id}`}
-                      className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
-                        id === n.id ? 'bg-primary/10 font-medium text-primary' : 'hover:bg-base-200'
-                      }`}
-                    >
-                      <div className="truncate">{n.title || n.id}</div>
-                      <div className="mt-0.5 flex items-center gap-1.5 text-[11px] opacity-50">
-                        <span className="font-mono">{n.topic || '未分类'}</span>
-                        {n.cards > 0 && <span>· {n.cards} 卡</span>}
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <div className="flex flex-col gap-4">
+                {grouped.map(([topic, list]) => {
+                  const isCollapsed = !q.trim() && collapsed.has(topic)
+                  return (
+                    <section key={topic || '_uncategorized'}>
+                      <button
+                        className="flex w-full items-center gap-1.5 rounded-lg px-3 py-1 text-[11px] font-medium opacity-60 transition-opacity hover:opacity-100"
+                        onClick={() => toggleGroup(topic)}
+                      >
+                        {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                        <span className="font-mono">{topic || '未分类'}</span>
+                        <span>{list.length} 篇</span>
+                      </button>
+                      {!isCollapsed && (
+                        <ul className="mt-0.5 flex flex-col gap-1">
+                          {list.map((n) => (
+                            <li key={n.id}>
+                              <Link
+                                to={`/notes/${n.id}`}
+                                className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
+                                  id === n.id ? 'bg-primary/10 font-medium text-primary' : 'hover:bg-base-200'
+                                }`}
+                              >
+                                <div className="truncate">{n.title || n.id}</div>
+                                {n.cards > 0 && (
+                                  <div className="mt-0.5 text-[11px] opacity-50">{n.cards} 卡</div>
+                                )}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </section>
+                  )
+                })}
+              </div>
             )
           ) : (
             notes && <NoteGraph notes={filtered} selected={id} onSelect={(nid) => nav(`/notes/${nid}`)} />
