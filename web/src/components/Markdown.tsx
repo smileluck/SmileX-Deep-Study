@@ -1,10 +1,19 @@
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import type { Components } from 'react-markdown'
 
-export default function Markdown({ children }: { children: string }) {
+export default function Markdown({
+  children,
+  components,
+}: {
+  children: string
+  components?: Components
+}) {
   return (
     <div className="prose-note text-[14.5px]">
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+        {children}
+      </ReactMarkdown>
     </div>
   )
 }

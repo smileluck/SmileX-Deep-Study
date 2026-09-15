@@ -17,10 +17,18 @@
 
 - `spaced-repetition` — 间隔重复与 FSRS（2026-09-13 导入，4 笔记 / 9 卡）
 - `math-teaching-theory` — 数学学科教学论（高级中学）（2026-09-14 导入，24 笔记 / 76 卡）
-  - 覆盖：课标理念 / 教学知识 / 教学设计与案例分析 / 《集合的基本运算》范例
+  - 覆盖：课标理念 10 篇 / 教学知识 8 篇 / 教学设计 3 篇 / 案例分析 3 篇 / 《集合的基本运算》范例
   - 已知缺口：缺课标六大核心素养中的"数据分析"，待补材料
+
+## 运行环境（2026-09-15 踩过）
+
+- 起服务：`make dev` → Go 后端 `127.0.0.1:5574` + Vite 前端 `:5573`。Go 服务用 `make dev` 的临时二进制，**源码改了必须重启 `make dev` 才生效**。
+- **validate 报 `type 非法: xxx` 先怀疑二进制陈旧**：`sessionTypes` 白名单在 `server/internal/api/validate.go`。2026-09-15 遇到 `type 非法: plan`，源码里 `plan` 早已合法，根因是 `make dev` 起的是特性合并前的旧构建。判定法：用当前源码另建二进制跑备用端口 + 同一份 `data/` 再 curl `/api/validate`，若 `ok:true` 即证明数据无问题。
+- **Vite 只监听 IPv6 `[::1]:5573`**：用 IPv4 `curl 127.0.0.1:5573` 会 connection refused，而走 `HTTP_PROXY` 时表现为 `502 Bad Gateway`——这不是前端挂了，浏览器访问 `localhost:5573` 正常。要绕开代理诊断本地端口，用 Python `socket` 直连或 `curl --noproxy '*'`。
+- 接口路径注意：主题计划是 `/api/plans/<slug>`（不是 `/api/topics/<slug>/plan`）。
 
 ## 工作习惯
 
 - 大批量产出（>20 文件）用一次性 Python 脚本落盘，再统一跑校验；不要逐文件手写。
 - PDF 提取用 `pdfplumber`（`/Users/smilex/.workbuddy-ai/binaries/python/versions/3.13.12/bin/python3`），环境里没有 pdftotext / mutool / pymupdf。
+- 写计划/报告时**引用数据必须逐条点名核对**（篇数、覆盖率、due 数），2026-09-15 就是靠逐篇点名发现模块篇数错了 4 处。

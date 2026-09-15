@@ -14,6 +14,7 @@ status: active
 | --- | --- | --- |
 | mastery | level 0 | `progress/mastery.json`（唯一 evidence 是 2026-09-14 的 import） |
 | 笔记 / 卡片 | 24 篇 / 76 张 | `data/notes/`、`data/cards/` |
+| 模块分布 | 课标 10 / 教学知识 8 / 教学设计 3 / 案例分析 3 | `data/notes/` 按 topic 聚合 |
 | 复习覆盖率 | 4 / 76 = **5.3%** | `progress/review-log.jsonl` 去重后仅 case-analysis-objectives c1-c3、case-analysis-process-c1 |
 | 当前到期 | 73 张 | `/api/stats` 的 due_now |
 | 笔记 Gaps | 1 处 | `core-literacy-answer-structure` 缺"数据分析"核心素养 |
@@ -26,7 +27,7 @@ status: active
 ## 里程碑
 
 - [ ] **M1 建立基线**：76 张卡片全部至少评分一次（`review-log.jsonl` 覆盖 76/76）
-- [ ] **M2 课标模块成型**：11 篇课标笔记无 Gaps（含补上"数据分析"）；一次 quiz 中课标题正确率 ≥ 80%
+- [ ] **M2 课标模块成型**：10 篇课标笔记无 Gaps（含补上"数据分析"）；一次 quiz 中课标题正确率 ≥ 80%
 - [ ] **M3 教学知识与设计能套用**：给定陌生课题，15 分钟内写出教学目标 + 重难点 + 五环节教学过程；quiz 教学知识题 ≥ 80%
 - [ ] **M4 案例分析专项过关**：脱稿逐条列出四类评析（教学目标七切入点 / 教学过程宏观五方面 + 四专项 / 错误归因与改进建议 / 教学方式·师生角色·提问原则），并能套到新案例上；quiz 案例分析题 ≥ 85%
 - [ ] **M5 限时混合模拟**：10 道混合题 + 1 道完整案例分析，正确率 ≥ 85%，mastery ≥ 4
@@ -36,14 +37,14 @@ status: active
 ### 第 1 周（2026-09-15 起）—— 清基线 + 课标 + 教学知识
 
 - **每日保底**：清空复习队列（首轮 73 张分 2-3 天消化完，之后按 FSRS 到期量走）
-- **前半周**：把 76 张卡片首轮全部过一遍 → 兑现 M1；同时跑 `/study:tutor math-teaching-theory` 精读课标 11 篇
-- **后半周**：教学知识 7 篇 + 教学设计模板 3 篇（`/study:tutor`）；跑 `/study:quiz math-teaching-theory 8`（课标 + 教学知识混合，检验 M2/M3）
+- **前半周**：把 76 张卡片首轮全部过一遍 → 兑现 M1；同时跑 `/study:tutor math-teaching-theory` 精读课标 10 篇
+- **后半周**：教学知识 8 篇 + 教学设计模板 3 篇（`/study:tutor`）；跑 `/study:quiz math-teaching-theory 8`（课标 + 教学知识混合，检验 M2/M3）
 - **周末**：补一份含"数据分析"核心素养的课标材料，`/study:import` 进本主题 → 清掉 M2 的 Gap；跑 `/study:diagnose math-teaching-theory` 出弱点报告，据证据决定第 2 周的重心
 
 ### 第 2 周（2026-09-22 起）—— 案例分析 + 限时模拟
 
 - **每日保底**：清空复习队列（第 1 周新学的卡片按递增间隔回访）
-- **前半周**：案例分析 6 篇精读，四类评析**各手写一份评析稿**；跑 `/study:quiz math-teaching-theory 8`（案例分析专项，检验 M4）
+- **前半周**：案例分析 3 篇精读（`case-analysis-objectives` / `case-analysis-process` / `error-attribution-and-improvement`），四类评析**各手写一份评析稿**；跑 `/study:quiz math-teaching-theory 8`（案例分析专项，检验 M4）
 - **后半周**：限时套写一个陌生课题的完整教学设计（目标 + 重难点 + 五环节）；跑 `/study:feynman math-teaching-theory` 检验易错点（如"评教学方式缺点时为何先写优点"）
 - **收尾**：全科混合模拟（10 题 + 1 道完整案例分析）→ 兑现 M5；`/study:diagnose` 复查，补齐残漏
 

@@ -138,7 +138,7 @@ level 0-5（0=未接触 … 5=能讲授）。每次变更必须附 evidence（ki
 ### 计划（W7 产出，agent 读写，UI 只读）
 
 - 主题计划 `data/topics/<slug>/plan.md`：frontmatter `topic`（= slug）/ `goal` / `horizon` / `created` / `updated` / `status`（active|done|paused）；正文「## 里程碑」用 `- [ ]`/`- [x]` 清单，每个里程碑绑定可检验完成标准；「## 周计划」按间隔效应与交错练习排布。
-- 全局计划 `data/plans/master.md`：frontmatter `id: master` / `title` / `created` / `updated`；正文含主题优先级（引用 mastery/diagnose 证据）、每周节奏、主题计划索引。
+- 全局计划 `data/plans/master.md`：frontmatter `id: master` / `title` / `created` / `updated`；正文含主题优先级（引用 mastery/diagnose 证据）、每周节奏、主题计划索引。全局计划不维护里程碑——「计划」页的总进度由各主题计划的 `- [x]` 聚合得出。
 
 ## 四、七条工作流与职责边界
 

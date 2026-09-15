@@ -137,6 +137,7 @@ status: active               # active | done | paused
 
 - 里程碑必须绑定**可检验完成标准**（笔记 Gaps / quiz 正确率 / mastery 等级），写不出标准的目标不进计划。
 - 勾选里程碑用 `- [x]`，由你在执行跟进时更新，并同步改 `updated`。
+- **全局计划自身不维护里程碑 checkbox**——它的总进度 = 各主题计划里程碑的聚合，由 Web UI 实时计算展示；跟进执行时只改主题计划的 `- [x]`。
 
 **全局计划 `data/plans/master.md`**：
 
