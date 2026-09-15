@@ -6,12 +6,15 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 
 	"smilex-deep-study/server/internal/api"
+	"smilex-deep-study/server/internal/scaffold"
 	"smilex-deep-study/server/internal/store"
 	web "smilex-deep-study/web"
 )
@@ -19,11 +22,23 @@ import (
 func main() {
 	addr := flag.String("addr", "127.0.0.1:5574", "监听地址")
 	dataDir := flag.String("data", "data", "数据目录（相对工作目录或绝对路径）")
+	withScaffold := flag.Bool("scaffold", true, "启动时铺出 harness 工作区文件（AGENTS.md/.agents/.codebuddy/roles/prompts，只建缺失不覆盖）")
 	flag.Parse()
 
-	st := store.New(*dataDir)
+	data, workspace := resolveDirs(*dataDir, flagPassed("data"))
+
+	st := store.New(data)
 	if err := st.Ensure(); err != nil {
 		log.Fatalf("初始化数据目录失败: %v", err)
+	}
+
+	if *withScaffold {
+		created, skipped, err := scaffold.Ensure(workspace)
+		if err != nil {
+			log.Printf("铺出 harness 工作区文件失败（不影响服务）: %v", err)
+		} else {
+			log.Printf("harness 工作区: %s（新建 %d 个文件，跳过已存在 %d 个）", workspace, len(created), len(skipped))
+		}
 	}
 
 	gin.SetMode(gin.ReleaseMode)
@@ -60,8 +75,90 @@ func main() {
 		c.Data(http.StatusOK, "text/html; charset=utf-8", index)
 	})
 
-	log.Printf("SmileX-Deep-Study 已启动: http://%s  (数据目录: %s)", *addr, *dataDir)
+	log.Printf("SmileX-Deep-Study 已启动: http://%s  (数据目录: %s)", *addr, data)
 	if err := r.Run(*addr); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func flagPassed(name string) bool {
+	found := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			found = true
+		}
+	})
+	return found
+}
+
+// resolveDirs 确定数据目录与工作区。显式传了 -data 时：数据目录原样使用，
+// 工作区取其上一级。未传 -data 时检测当前目录：
+//  1. 已是工作区（有 data/ 或 AGENTS.md）或只有二进制本身 → 原地作为工作区；
+//  2. 已有 deepstudy/ 子目录 → 复用它；
+//  3. 否则（非空目录）→ 新建 deepstudy/ 把工作区与数据收进去；
+//     二进制本身留在当前目录，二次运行命令不变。
+func resolveDirs(dataFlag string, explicit bool) (dataDir, workspace string) {
+	if explicit {
+		dataDir = dataFlag
+		if abs, err := filepath.Abs(dataFlag); err == nil {
+			workspace = filepath.Dir(abs)
+		} else {
+			workspace = dataFlag
+		}
+		return dataDir, workspace
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return dataFlag, "."
+	}
+	// /tmp 等符号链接路径统一成真实路径，保证与 exe 路径可比较
+	if real, rerr := filepath.EvalSymlinks(cwd); rerr == nil {
+		cwd = real
+	}
+	entries, _ := os.ReadDir(cwd)
+
+	exe, _ := os.Executable()
+	exe, _ = filepath.EvalSymlinks(exe)
+
+	if has(entries, "data") || has(entries, "AGENTS.md") {
+		return dataFlag, cwd
+	}
+
+	nested := filepath.Join(cwd, "deepstudy")
+	if has(entries, "deepstudy") {
+		return nestedData(nested), nested
+	}
+
+	meaningful := 0
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		if exe != "" && filepath.Join(cwd, e.Name()) == exe {
+			continue
+		}
+		meaningful++
+	}
+	if meaningful == 0 {
+		return dataFlag, cwd
+	}
+
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		log.Printf("创建 deepstudy/ 失败，退回当前目录: %v", err)
+		return dataFlag, cwd
+	}
+	log.Printf("检测到非空目录，工作区已收进 %s（二进制留在当前目录，二次运行命令不变）", nested)
+	return nestedData(nested), nested
+}
+
+func nestedData(nested string) string { return filepath.Join(nested, "data") }
+
+func has(entries []os.DirEntry, name string) bool {
+	for _, e := range entries {
+		if e.Name() == name {
+			return true
+		}
+	}
+	return false
 }

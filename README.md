@@ -17,7 +17,11 @@ cd web && pnpm install && pnpm build && cd ..
 # 2. Build the single binary (web/dist is embedded via go:embed)
 go build -o deep-study ./server/cmd/server
 
-# 3. Run from the repo root (the Workflow page's prompt feature depends on prompts/ at the root)
+# 3. Run in any directory — startup creates data/ and scaffolds the harness workspace
+#    (AGENTS.md/.agents/.codebuddy/roles/prompts), missing files only.
+#    In a non-empty directory the workspace is tucked into a new deepstudy/
+#    subfolder while the binary stays put, so the same ./deep-study command
+#    works on every run; use -data to pick a location explicitly.
 ./deep-study
 # → http://127.0.0.1:5574
 ```
@@ -65,7 +69,7 @@ Red-line rules (see `AGENTS.md` for details): the `fsrs:` block in `cards/*.md` 
 
 - **Backend**: Go + gin + [go-fsrs](https://github.com/open-spaced-repetition/go-fsrs) (official FSRS implementation, target retention 0.90) + yaml.Node-based targeted frontmatter rewriting (preserves any extra fields the agent wrote)
 - **Frontend**: Vite + React 19 + TypeScript + Tailwind 4 + daisyUI 5, embedded into the binary via `go:embed`
-- **Deployment**: one static binary + a `data/` directory, no runtime dependencies
+- **Deployment**: one static binary + a `data/` directory, no runtime dependencies; on startup it scaffolds the harness workspace (AGENTS.md/.agents/.codebuddy/roles/prompts, missing files only), and when launched in a non-empty directory without an explicit `-data` flag the workspace is tucked into a new `deepstudy/` subfolder while the binary stays put — the same `./deep-study` command works on every run
 
 ## Repository Layout
 

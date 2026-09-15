@@ -17,7 +17,10 @@ cd web && pnpm install && pnpm build && cd ..
 # 2. 构建单二进制（会把 web/dist 内嵌进去）
 go build -o deep-study ./server/cmd/server
 
-# 3. 在仓库根目录运行（工作流页的通用 prompt 功能依赖根目录下的 prompts/）
+# 3. 在任意目录运行——启动时自动创建 data/ 并铺出 harness 工作区文件
+#    （AGENTS.md/.agents/.codebuddy/roles/prompts，只建缺失不覆盖，-scaffold=false 可关）。
+#    在非空目录运行时工作区会收进新建的 deepstudy/ 子目录，二进制留在原地，
+#    二次运行仍是同一条 ./deep-study；想指定位置就用 -data 显式传数据目录。
 ./deep-study
 # → http://127.0.0.1:5574
 ```
@@ -65,7 +68,7 @@ data/
 
 - **后端**：Go + gin + [go-fsrs](https://github.com/open-spaced-repetition/go-fsrs)（FSRS 官方实现，目标记忆率 0.90）+ yaml.Node 定向改写 frontmatter（保留 agent 写入的额外字段）
 - **前端**：Vite + React 19 + TypeScript + Tailwind 4 + daisyUI 5，`go:embed` 内嵌进二进制
-- **部署**：一个静态二进制 + `data/` 目录，无运行时依赖
+- **部署**：一个静态二进制 + `data/` 目录，无运行时依赖；启动时自动铺出 harness 工作区文件（AGENTS.md/.agents/.codebuddy/roles/prompts，只建缺失），未传 `-data` 且在非空目录运行时工作区自动收进 `deepstudy/` 子目录（二进制留在原地，二次运行命令不变），任意目录都能直接用 WorkBuddy 等工具打开
 
 ## 目录结构
 
