@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ChevronDown, ChevronRight, Link2, Network, Search, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Link2, Network, Search, X } from 'lucide-react'
 import { get, type NoteDetail, type NoteListItem } from '../api'
 import Markdown from '../components/Markdown'
 
@@ -237,7 +237,27 @@ export default function Notes() {
     <div className="flex h-full">
       <div className="flex w-80 shrink-0 flex-col border-r border-base-300 bg-base-200/30">
         <div className="p-4 pb-2">
-          <h1 className="px-1 text-base font-bold">笔记</h1>
+          <div className="flex items-center justify-between px-1">
+            <h1 className="text-base font-bold">笔记</h1>
+            {tab === 'list' && (
+              <div className="flex items-center gap-0.5">
+                <button
+                  className="btn btn-ghost btn-xs btn-circle"
+                  title="展开全部"
+                  onClick={() => setCollapsed(new Set())}
+                >
+                  <ChevronsUpDown className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  className="btn btn-ghost btn-xs btn-circle"
+                  title="折叠全部"
+                  onClick={() => setCollapsed(new Set(grouped.map(([t]) => t)))}
+                >
+                  <ChevronsDownUp className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
           <label className="input input-sm mt-3 flex items-center gap-2 rounded-lg bg-base-100 px-3">
             <Search className="h-3.5 w-3.5 opacity-40" />
             <input
