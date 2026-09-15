@@ -50,6 +50,9 @@ func Register(r *gin.Engine, st *store.Store) {
 		api.GET("/sessions", a.ListSessions)
 		api.GET("/sessions/:id", a.GetSession)
 
+		api.GET("/plans", a.GetPlans)
+		api.GET("/plans/:slug", a.GetTopicPlan)
+
 		api.GET("/mastery", a.GetMastery)
 		api.GET("/stats", a.GetStats)
 		api.GET("/prompts/:name", a.GetPrompt)
@@ -73,16 +76,24 @@ func errJSON(c *gin.Context, code int, err error) {
 	c.JSON(code, gin.H{"error": err.Error()})
 }
 
-// GetPrompt 返回仓库 prompts/ 下的通用模板原文（工作流页一键复制用）。
+// GetPrompt 返回 prompts/ 下的通用模板原文（工作流页一键复制用）。
+// 优先读工作区（数据目录上一级，启动时已由 scaffold 铺出），其次回退到进程工作目录。
 func (a *API) GetPrompt(c *gin.Context) {
 	name := c.Param("name")
 	if name == "" || strings.ContainsRune(name, '/') || strings.ContainsRune(name, '.') {
 		errJSON(c, 400, fmt.Errorf("非法 prompt 名称"))
 		return
 	}
-	b, err := os.ReadFile(filepath.Join("prompts", name+".md"))
+	rel := filepath.Join("prompts", name+".md")
+	b, err := os.ReadFile(rel)
+	if abs, aerr := filepath.Abs(a.Store.DataDir); aerr == nil {
+		if wb, werr := os.ReadFile(filepath.Join(filepath.Dir(abs), rel)); werr == nil {
+			b = wb
+			err = nil
+		}
+	}
 	if err != nil {
-		errJSON(c, 404, fmt.Errorf("prompt 不存在（需在仓库根目录运行服务，且 prompts/%s.md 存在）", name))
+		errJSON(c, 404, fmt.Errorf("prompt 不存在（prompts/%s.md 缺失；二进制启动时会在数据目录上一级自动铺出）", name))
 		return
 	}
 	c.Data(200, "text/markdown; charset=utf-8", b)

@@ -57,9 +57,15 @@
 - 缺口：学习者系统性地误判学习效果（流畅性错觉），主动偏好重读——**工具必须替用户做对的事**。
 - 对本项目的输入：复习播放器强制"先回忆后揭示"；自测工作流生成**新题**（不复用复习卡，避免再认冒充回忆）；到期队列按主题交错。
 
+### 7. 学习路径规划——单点反馈都有了，缺一条长线
+
+- 上面六个体系解决的都是"点"：一次对话、一张卡、一次诊断。但学习者还缺一条**长线**：先学什么、学到什么程度算够、下周干什么。开源社区的对照实践：[education-agent-skills](https://github.com/GarethManning/education-agent-skills) 的 Backwards Design Unit Planner（以终为始：先定可检验的终点表现，再倒推里程碑）与 Spaced Practice Scheduler（按 Cepeda et al. 2006 的间隔元分析把回访摊到递增间隔，并跨主题交错）；[Multi-Agent-Study-Assistant](https://github.com/A-R007/Multi-Agent-Study-Assistant) 的 Roadmap Creator（目标→里程碑→按学习风格排程）。
+- 缺口：诊断（W6）回答"哪里弱"，复习（W4）回答"今天背哪张卡"，但没有人回答"接下来四周怎么排"——计划散落在学习者脑子里，执行随情绪漂移。
+- 对本项目的输入：**规划工作流（W7）**：harness 扮演规划师，以 mastery/diagnose 证据定优先级，backwards design 倒推里程碑（每个绑定可检验完成标准），按间隔与交错排周计划；产出双层纯文件——全局 `data/plans/master.md` + 主题 `data/topics/<slug>/plan.md`，Web UI「计划」页只读渲染。规划层复用而不替代现有闭环：里程碑的检验标准直接引用笔记 Gaps、quiz 正确率、mastery 等级。
+
 ## 三、综合差距结论
 
-完整学习闭环是：**材料 → 理解（导师对话/费曼）→ 内化（原子笔记）→ 巩固（FSRS 调度）→ 诊断（弱点 → 定向练习）**。
+完整学习闭环是：**规划（路径与优先级）→ 材料 → 理解（导师对话/费曼）→ 内化（原子笔记）→ 巩固（FSRS 调度）→ 诊断（弱点 → 定向练习）**，诊断结论再回流修订规划。
 
 - DeepTutor 覆盖"理解"，缺"巩固"与纯文件知识库；
 - Anki 覆盖"巩固"，缺"理解"与"内化"；

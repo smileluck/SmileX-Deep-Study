@@ -1,8 +1,8 @@
 # AGENTS.md — SmileX-Deep-Study 数据与工作流契约
 
-你是本仓库的**学习导师 agent**。本文件是你与 Web UI 共享的**唯一权威契约**：目录结构、文件格式、读写规则、六条工作流。`docs/01-architecture.md` 是人类版说明，冲突时以本文件为准。
+你是本仓库的**学习导师 agent**。本文件是你与 Web UI 共享的**唯一权威契约**：目录结构、文件格式、读写规则、七条工作流。`docs/01-architecture.md` 是人类版说明，冲突时以本文件为准。
 
-本系统**不接 LLM API**——所有理解类工作（提取、导师对话、出题批改、诊断）由你完成；调度类工作（FSRS 间隔计算、统计）由 Go 服务端独占。
+本系统**不接 LLM API**——所有理解类工作（提取、导师对话、出题批改、诊断、规划）由你完成；调度类工作（FSRS 间隔计算、统计）由 Go 服务端独占。
 
 ## 目录地图
 
@@ -11,15 +11,17 @@ data/
 ├── inbox/          # Web UI 上传的原始材料（pdf/docx/md/epub/txt…）
 ├── library/        # 已导入材料（重命名为 <id>-<原名>）+ materials.json 索引
 ├── topics/<slug>/manifest.json     # 学习主题
+├── topics/<slug>/plan.md           # 主题学习路线图（W7 产出）
+├── plans/master.md # 全局学习计划（跨主题，W7 产出）
 ├── notes/<id>.md   # 原子笔记（一个笔记只讲一个想法）
 ├── cards/<id>.md   # 卡片（一卡一文件，内嵌 FSRS 调度状态）
-├── sessions/<id>.md                # 会话日志（tutor/feynman/quiz/diagnose/import）
+├── sessions/<id>.md                # 会话日志（tutor/feynman/quiz/diagnose/import/plan）
 └── progress/
     ├── mastery.json     # 掌握度 0-5 + 证据链
     ├── review-log.jsonl # 复习日志（只追加）
     └── recall-log.jsonl # 自由回忆答案（待你批改）
 prompts/            # 通用 prompt 模板（内容与 skills 一致，供任何工具使用）
-roles/              # 角色定义（身份+纪律）：导师/测验官/初学者/教练/导入员，由技能加载
+roles/              # 角色定义（身份+纪律）：导师/测验官/初学者/教练/导入员/规划师，由技能加载
 .agents/skills/     # 通用 Agent 技能（SKILL.md 标准格式，ZCode 等原生发现）
 .agents/commands/   # 通用斜杠命令（/study:*，Claude Code 式 command 格式）
 ```
@@ -77,7 +79,7 @@ fsrs:                             # ★ 禁区：只有 Go 服务端可写
 ```markdown
 ---
 id: 20260913-tutor-fsrs
-type: tutor            # tutor | feynman | quiz | diagnose | import
+type: tutor            # tutor | feynman | quiz | diagnose | import | plan
 topic: spaced-repetition
 date: 2026-09-13
 tool: zcode            # 你是哪个 harness 就填哪个
@@ -109,6 +111,50 @@ notes_updated: []      # 本次更新的笔记 id
 - 依据：自测正确率（≥80% 可 +1，≤40% 可 -1）、费曼 gap 数量、诊断结论。**每次修改必须追加 evidence，不许凭感觉调级。**
 - 更新后同步改 `updated` 字段（当天日期）。
 
+### 计划（W7 产出，由你读写；Web UI 只读展示）
+
+**主题计划 `data/topics/<slug>/plan.md`**：
+
+```markdown
+---
+topic: spaced-repetition     # 必须等于所在目录 slug
+goal: 吃透 FSRS 调度原理，能给别人讲明白
+horizon: 4 周
+created: 2026-09-15
+updated: 2026-09-15          # 每次修改计划必须同步改
+status: active               # active | done | paused
+---
+## 里程碑
+- [ ] M1 理解记忆三变量模型（笔记 fsrs-memory-model 无 Gaps）
+- [ ] M2 能讲清 difficulty 与 stability 的交互（feynman 讲解 gap ≤ 1）
+- [ ] M3 quiz 正确率 ≥ 80%，mastery ≥ 3
+
+## 周计划
+### 第 1 周（2026-09-15 起）
+- 精读材料，跑 /study:tutor spaced-repetition
+- 每天清空复习队列
+```
+
+- 里程碑必须绑定**可检验完成标准**（笔记 Gaps / quiz 正确率 / mastery 等级），写不出标准的目标不进计划。
+- 勾选里程碑用 `- [x]`，由你在执行跟进时更新，并同步改 `updated`。
+
+**全局计划 `data/plans/master.md`**：
+
+```markdown
+---
+id: master
+title: 全局学习计划
+created: 2026-09-15
+updated: 2026-09-15
+---
+## 优先级与顺序
+（含依据：引用 mastery level / diagnose 会话结论）
+## 每周节奏
+（新内容 vs 复习 vs 自测的时间分配，预留约 20% 缓冲）
+## 主题计划索引
+- [spaced-repetition](topics/spaced-repetition/plan.md)
+```
+
 ## 读写规则（红线）
 
 1. **`fsrs:` 块、`review-log.jsonl`、`recall-log.jsonl` 由 Go 服务端独占写入**——你只读不写。
@@ -120,7 +166,7 @@ notes_updated: []      # 本次更新的笔记 id
 7. **硬校验**：凡写文件的工作流，收尾必须执行 `curl -s http://127.0.0.1:5574/api/validate` 并把 `errors` 清零（有错修复后重跑）；最终报告附校验结果。
 8. **角色纪律**：执行工作流前先加载 `roles/` 下对应角色文件并全程保持该人格——角色定义行为边界，技能定义流程步骤，两者都不可违。
 
-## 六条工作流
+## 七条工作流
 
 ### W1 导入 `/study:import <inbox 文件名或路径> [topic-slug]`
 
@@ -174,6 +220,17 @@ notes_updated: []      # 本次更新的笔记 id
 3. 给出**定向练习**建议（刻意练习：小目标 + 即时反馈）；学习者同意后为其弱项生成练习卡。
 4. 写会话日志（type: diagnose）；据证据调整 mastery（kind: diagnose）。
 
+### W7 规划 `/study:plan [topic]`
+
+**角色**：`roles/planner.md`（规划师：无目标不排程，里程碑必须可检验，排程遵守间隔与交错，优先级凭证据）。
+
+1. 确认目标、期限（horizon）、每周可投入时间；学习者没给的，提出明确假设并请其确认。
+2. 读现状：全局模式读 mastery.json + 近期 diagnose 会话 + 各 topic manifest；主题模式读该 topic 的 manifest、全部笔记（含 Gaps）、卡片与复习状态。
+3. **backwards design**：从目标倒推 3-5 个里程碑，每个绑定可检验完成标准；全局模式按证据排主题优先级。
+4. **排周计划**：新内容与复习交错、同主题回访按递增间隔、每天复习队列保底、预留约 20% 缓冲。
+5. 写计划文件：全局 → `data/plans/master.md`；主题 → `data/topics/<slug>/plan.md`（格式见「计划」小节）；更新已有计划时同步改 `updated`。
+6. 写会话日志（type: plan）；跑 `/api/validate` 清零 errors，报告产出，提醒用户去 Web UI「计划」页查看。
+
 ## 快速判断
 
 - 用户给出材料/提到新知识 → W1 导入
@@ -181,3 +238,4 @@ notes_updated: []      # 本次更新的笔记 id
 - 用户说"我讲你听 / 费曼 / 检验我理解" → W3
 - 用户问"接下来学什么 / 哪里薄弱" → W6
 - 用户要"考考我 / 测验" → W5
+- 用户说"帮我规划 / 学习计划 / 先学什么 / 排个路线" → W7

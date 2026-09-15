@@ -64,5 +64,16 @@
     "description": "综合掌握度、复习 Again 率、会话误解记录，产出带证据的弱点报告与定向练习处方（刻意练习闭环）。",
     "outputs": ["data/sessions/*diagnose*.md", "定向练习卡", "mastery.json 调整"],
     "ui_hint": "每周跑一次，回答「接下来学什么」。"
+  },
+  {
+    "id": "plan",
+    "name": "学习规划",
+    "icon": "map",
+    "runner": "Harness",
+    "command": "/study:plan [topic]",
+    "prompt_file": "prompts/plan.md",
+    "description": "以终为始倒推里程碑，按间隔效应与交错练习排周计划：全局学习计划（先学什么、时间分配）或按主题路线图。",
+    "outputs": ["data/plans/master.md", "data/topics/<slug>/plan.md", "data/sessions/*plan*.md"],
+    "ui_hint": "在「计划」页查看产出的路线图；规划前先跑一次诊断效果更好。"
   }
 ]

@@ -5,12 +5,15 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"smilex-deep-study/server/internal/fsrsx"
+	"smilex-deep-study/server/internal/store"
 )
 
 type validationIssue struct {
@@ -27,7 +30,7 @@ type validateResp struct {
 }
 
 var sessionTypes = map[string]bool{
-	"tutor": true, "feynman": true, "quiz": true, "diagnose": true, "import": true,
+	"tutor": true, "feynman": true, "quiz": true, "diagnose": true, "import": true, "plan": true,
 }
 
 var evidenceKinds = map[string]bool{
@@ -42,7 +45,7 @@ func isDate(s string) bool {
 func (a *API) Validate(c *gin.Context) {
 	errs := []validationIssue{}
 	warns := []validationIssue{}
-	checked := map[string]int{"cards": 0, "notes": 0, "sessions": 0, "mastery_topics": 0, "materials": 0}
+	checked := map[string]int{"cards": 0, "notes": 0, "sessions": 0, "mastery_topics": 0, "materials": 0, "plans": 0}
 
 	// ---- 卡片 ----
 	if ids, err := a.Store.CardIDs(); err == nil {
@@ -196,6 +199,87 @@ func (a *API) Validate(c *gin.Context) {
 			if len(issues) > 0 {
 				errs = append(errs, validationIssue{File: "progress/mastery.json", Kind: "mastery",
 					Issues: append([]string{topic + ":"}, issues...)})
+			}
+		}
+	}
+
+	// ---- 学习计划 ----
+	planDates := func(fm map[string]any, issues []string) []string {
+		for _, k := range []string{"created", "updated"} {
+			if d, _ := fm[k].(string); d != "" && !isDate(d) {
+				issues = append(issues, k+" 不是 YYYY-MM-DD")
+			}
+		}
+		return issues
+	}
+	if entries, err := os.ReadDir(filepath.Join(a.Store.DataDir, "plans")); err == nil {
+		for _, e := range entries {
+			name := e.Name()
+			if e.IsDir() || !strings.HasSuffix(name, ".md") || strings.HasPrefix(name, ".") {
+				continue
+			}
+			checked["plans"]++
+			rel := "plans/" + name
+			raw, err := os.ReadFile(filepath.Join(a.Store.DataDir, "plans", name))
+			if err != nil {
+				errs = append(errs, validationIssue{File: rel, Kind: "plan", Issues: []string{"读取失败: " + err.Error()}})
+				continue
+			}
+			doc, err := store.ParseDoc(raw)
+			if err != nil {
+				errs = append(errs, validationIssue{File: rel, Kind: "plan", Issues: []string{"解析失败: " + err.Error()}})
+				continue
+			}
+			fm := doc.Map()
+			var issues []string
+			for _, k := range []string{"id", "title", "created", "updated"} {
+				if s, ok := fm[k].(string); !ok || strings.TrimSpace(s) == "" {
+					issues = append(issues, "缺少或为空字段 "+k)
+				}
+			}
+			issues = planDates(fm, issues)
+			if len(issues) > 0 {
+				errs = append(errs, validationIssue{File: rel, Kind: "plan", Issues: issues})
+			}
+		}
+	}
+	if entries, err := os.ReadDir(a.Store.TopicsDir()); err == nil {
+		for _, e := range entries {
+			if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+				continue
+			}
+			slug := e.Name()
+			raw, err := os.ReadFile(filepath.Join(a.Store.TopicsDir(), slug, "plan.md"))
+			if os.IsNotExist(err) {
+				continue
+			}
+			checked["plans"]++
+			rel := "topics/" + slug + "/plan.md"
+			if err != nil {
+				errs = append(errs, validationIssue{File: rel, Kind: "plan", Issues: []string{"读取失败: " + err.Error()}})
+				continue
+			}
+			doc, err := store.ParseDoc(raw)
+			if err != nil {
+				errs = append(errs, validationIssue{File: rel, Kind: "plan", Issues: []string{"解析失败: " + err.Error()}})
+				continue
+			}
+			fm := doc.Map()
+			var issues []string
+			for _, k := range []string{"topic", "goal", "created", "updated", "status"} {
+				if s, ok := fm[k].(string); !ok || strings.TrimSpace(s) == "" {
+					issues = append(issues, "缺少或为空字段 "+k)
+				}
+			}
+			if v, _ := fm["topic"].(string); v != "" && v != slug {
+				issues = append(issues, "frontmatter topic 与目录 slug 不一致")
+			}
+			if s, _ := fm["status"].(string); s != "" && s != "active" && s != "done" && s != "paused" {
+				issues = append(issues, "status 非法: "+s)
+			}
+			issues = planDates(fm, issues)
+			if len(issues) > 0 {
+				errs = append(errs, validationIssue{File: rel, Kind: "plan", Issues: issues})
 			}
 		}
 	}

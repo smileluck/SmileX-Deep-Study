@@ -7,7 +7,7 @@
 1. **纯文件存储**：全部学习数据是 Markdown + YAML frontmatter + JSON/JSONL，无数据库。任何 agent harness（ZCode/Trae/Kimi/WorkBuddy）都能直接读写，Web UI 与 harness 操作同一份文件。
 2. **LLM 外置**：理解类工作（导入提取、苏格拉底导师、费曼追问、出题批改、弱点诊断）由用户打开的 harness 执行；系统只提供契约、模板和落盘格式。
 3. **调度内置**：FSRS 间隔重复是纯数学，由 Go 服务端独占计算（`go-fsrs`），agent 不得伪造调度字段。
-4. **单一部署单元**：`go build` 产出静态二进制，前端产物 `go:embed` 内嵌；部署 = 二进制 + `data/` 目录。
+4. **单一部署单元**：`go build` 产出静态二进制，前端产物 `go:embed` 内嵌；部署 = 二进制 + `data/` 目录。二进制启动时自动铺出 harness 契约文件（AGENTS.md/.agents/.codebuddy/roles/prompts，只建缺失不覆盖）；未显式传 `-data` 且当前目录是非空目录时，会先新建 `deepstudy/` 子目录把工作区和数据收进去，不污染当前目录（二进制本身留在原地，二次运行命令不变）。
 5. **实时读盘**：服务端每个请求实时扫描 `data/`，不缓存——因为 harness 随时在进程外改文件。
 
 ## 二、目录地图
@@ -22,9 +22,11 @@ SmileX-Deep-Study/
 │   ├── inbox/                         # UI 上传的原始材料
 │   ├── library/                       # 已导入材料 + materials.json 索引
 │   ├── topics/<slug>/manifest.json    # 学习主题
+│   ├── topics/<slug>/plan.md          # 主题学习路线图（W7 产出，agent 读写）
+│   ├── plans/master.md                # 全局学习计划（W7 产出，agent 读写）
 │   ├── notes/<id>.md                  # 原子笔记
 │   ├── cards/<id>.md                  # 卡片（一卡一文件，内嵌 FSRS 状态）
-│   ├── sessions/<id>.md               # 会话日志（tutor/feynman/quiz/diagnose/import）
+│   ├── sessions/<id>.md               # 会话日志（tutor/feynman/quiz/diagnose/import/plan）
 │   └── progress/
 │       ├── mastery.json               # 掌握度（0-5 + 证据链）
 │       ├── review-log.jsonl           # 复习日志（追加式）
@@ -85,7 +87,7 @@ fsrs:                          # ★ 只有 Go 服务端可写
 ```markdown
 ---
 id: 20260913-tutor-fsrs
-type: tutor          # tutor | feynman | quiz | diagnose | import
+type: tutor          # tutor | feynman | quiz | diagnose | import | plan
 topic: spaced-repetition
 date: 2026-09-13
 tool: zcode          # 产生本次会话的 harness
@@ -133,7 +135,12 @@ level 0-5（0=未接触 … 5=能讲授）。每次变更必须附 evidence（ki
  "created": "2026-09-13", "description": "…"}
 ```
 
-## 四、六条工作流与职责边界
+### 计划（W7 产出，agent 读写，UI 只读）
+
+- 主题计划 `data/topics/<slug>/plan.md`：frontmatter `topic`（= slug）/ `goal` / `horizon` / `created` / `updated` / `status`（active|done|paused）；正文「## 里程碑」用 `- [ ]`/`- [x]` 清单，每个里程碑绑定可检验完成标准；「## 周计划」按间隔效应与交错练习排布。
+- 全局计划 `data/plans/master.md`：frontmatter `id: master` / `title` / `created` / `updated`；正文含主题优先级（引用 mastery/diagnose 证据）、每周节奏、主题计划索引。
+
+## 四、七条工作流与职责边界
 
 | # | 工作流 | 执行者 | 输入 → 输出 |
 |---|---|---|---|
@@ -143,6 +150,7 @@ level 0-5（0=未接触 … 5=能讲授）。每次变更必须附 evidence（ki
 | W4 复习 | Web UI（零 LLM） | Go | 到期队列 → 四档评分 → FSRS 更新 + review-log |
 | W5 自测 | harness `/study:quiz` | harness | 笔记 → 新题（不复用卡片）→ 批改 → mastery 回写 |
 | W6 诊断 | harness `/study:diagnose` | harness | mastery+日志+会话 → 弱点报告 → 定向练习卡 |
+| W7 规划 | harness `/study:plan` | harness | 目标+mastery/诊断证据 → plans/master.md + topics/<slug>/plan.md（里程碑+周计划） |
 
 ## 五、Go 后端 API
 
@@ -159,6 +167,7 @@ level 0-5（0=未接触 … 5=能讲授）。每次变更必须附 evidence（ki
 | POST | /api/cards | UI 手动建卡（fsrs 初始化为 New） |
 | GET  | /api/sessions | 会话列表（解析 frontmatter） |
 | GET  | /api/mastery | mastery.json + 各主题卡片健康度 |
+| GET  | /api/plans / /api/plans/:slug | 全局学习计划 + 各主题路线图（只读，供「计划」页渲染） |
 | GET  | /api/stats | 仪表盘：今日到期/总卡数/连续天数/90天热力图/最近会话 |
 | GET  | /* | go:embed 的 SPA 静态文件（history 路由 fallback index.html） |
 
@@ -168,4 +177,4 @@ level 0-5（0=未接触 … 5=能讲授）。每次变更必须附 evidence（ki
 
 - 后端：Go + gin + go-fsrs + gopkg.in/yaml.v3（frontmatter 经 yaml.Node 定向更新，保留 agent 写入的任意额外字段）
 - 前端：Vite + React 19 + TypeScript + Tailwind 4 + daisyUI + react-markdown + react-router + lucide-react
-- 部署：`cd web && pnpm build`（产物 web/dist）→ `go build -o deep-study ./server/cmd/server` → 运行即得 `http://127.0.0.1:8787`
+- 部署：`make build`（web/dist + 脚手架资产一起 `go:embed`）→ `./deep-study` 运行即得 `http://127.0.0.1:5574`；启动时自动创建 `data/` 并铺出 AGENTS.md/.agents/.codebuddy/roles/prompts（只建缺失，`-scaffold=false` 可关）；未传 `-data` 且在非空目录运行时，自动收进 `deepstudy/` 子目录（二进制留在原地，二次运行命令不变）

@@ -6,6 +6,7 @@ import {
   FolderOpen,
   Gauge,
   GraduationCap,
+  Map,
   NotebookPen,
   Repeat,
   ScrollText,
@@ -15,6 +16,7 @@ import { get, type Stats } from './api'
 import Dashboard from './pages/Dashboard'
 import Library from './pages/Library'
 import Notes from './pages/Notes'
+import Plans from './pages/Plans'
 import Review from './pages/Review'
 import Sessions from './pages/Sessions'
 import Workflows from './pages/Workflows'
@@ -26,6 +28,7 @@ const nav = [
   { to: '/library', label: '资料库', icon: FolderOpen, end: false },
   { to: '/notes', label: '笔记', icon: NotebookPen, end: false },
   { to: '/sessions', label: '会话', icon: ScrollText, end: false },
+  { to: '/plans', label: '计划', icon: Map, end: false },
   { to: '/workflows', label: '工作流', icon: FlaskConical, end: false },
   { to: '/mastery', label: '掌握度', icon: Target, end: false },
 ]
@@ -101,6 +104,7 @@ export default function App() {
           <Route path="/notes/:id" element={<Notes />} />
           <Route path="/sessions" element={<Sessions />} />
           <Route path="/sessions/:id" element={<Sessions />} />
+          <Route path="/plans" element={<Plans />} />
           <Route path="/workflows" element={<Workflows />} />
           <Route path="/mastery" element={<Mastery />} />
         </Routes>

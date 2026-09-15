@@ -4,6 +4,7 @@ import {
   GraduationCap,
   Inbox,
   Lightbulb,
+  Map,
   MonitorSmartphone,
   Repeat,
   Stethoscope,
@@ -19,6 +20,7 @@ const icons: Record<string, typeof Inbox> = {
   repeat: Repeat,
   'file-question': FileQuestion,
   stethoscope: Stethoscope,
+  map: Map,
 }
 
 export default function Workflows() {
@@ -48,7 +50,7 @@ export default function Workflows() {
     <div className="mx-auto max-w-4xl p-8">
       <h1 className="text-xl font-bold">工作流</h1>
       <p className="mt-1 text-sm opacity-60">
-        六条学习工作流：理解类在 harness 里跑（复制命令即可），调度类在本界面完成。
+        七条学习工作流：理解类在 harness 里跑（复制命令即可），调度类在本界面完成。
       </p>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">

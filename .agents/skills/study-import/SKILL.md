@@ -20,3 +20,9 @@ description: 把 data/inbox/ 中的学习材料导入系统：提取内容、建
 6. **写会话日志**：`data/sessions/YYYYMMDD-import-<topic>.md`（type: import），并在 `data/progress/mastery.json` 为该 topic 新建条目（level 0，evidence 记 kind: import）。
 7. **收尾自检（必须）**：执行 `curl -s http://127.0.0.1:5574/api/validate`——`errors` 必须清零；有错就修复后重跑，直到干净。
 8. **报告**：列出新建/更新的全部文件 + 校验结果，提醒用户到 Web UI（默认 http://127.0.0.1:5574）查看到期队列开始复习。
+
+## 已知坑（会直接导致校验不过，务必先看）
+
+1. **`fsrs.due` 必须加双引号**。写成 `due: 2026-09-14T00:00:00Z`（裸标量）时 YAML 会解析成时间对象，而服务端 `normalizeTimes` 对"零点整"的时间会降级成纯日期 `2026-09-14`，随后 `fsrsx.FromMap` 报 `fsrs 块格式错误: parsing time "2026-09-14" as ...`。正确写法：`due: "2026-09-14T00:00:00Z"`。
+2. **frontmatter 里的标题/值只要以 `"` 开头或含 ASCII `: `，就必须整体加引号**。例：`title: "四基"课程目标：…` 会让 YAML 在第 1 行报 `did not find expected key`。写成 `title: '"四基"课程目标：…'`（单引号包裹，内部单引号需双写）。
+3. **批量产出建议用一次性脚本**。材料较大时（几十篇笔记 + 几十张卡）逐文件手写既慢又容易漏字段；用 Python 把 `NOTES` 数据结构一次性落盘，再统一跑校验。落盘后仍要执行第 7 步。

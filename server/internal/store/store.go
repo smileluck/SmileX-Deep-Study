@@ -354,6 +354,65 @@ func (s *Store) ListTopics() ([]map[string]any, error) {
 	return out, nil
 }
 
+// ---------- 学习计划 ----------
+
+type Plan struct {
+	Slug string // 主题计划为 slug；全局计划为 "master"
+	Path string
+	FM   map[string]any
+	Body string
+}
+
+// MasterPlan 读取全局计划；文件不存在返回 nil, nil。
+func (s *Store) MasterPlan() (*Plan, error) {
+	path := filepath.Join(s.DataDir, "plans", "master.md")
+	doc, err := s.readDoc(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &Plan{Slug: "master", Path: path, FM: doc.Map(), Body: doc.Body}, nil
+}
+
+// TopicPlans 扫描 data/topics/*/plan.md，按 slug 排序。
+func (s *Store) TopicPlans() ([]Plan, error) {
+	entries, err := os.ReadDir(s.TopicsDir())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	plans := make([]Plan, 0, len(entries))
+	for _, e := range entries {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		path := filepath.Join(s.TopicsDir(), e.Name(), "plan.md")
+		doc, err := s.readDoc(path)
+		if err != nil {
+			continue // 坏文件跳过而不是整体失败
+		}
+		plans = append(plans, Plan{Slug: e.Name(), Path: path, FM: doc.Map(), Body: doc.Body})
+	}
+	sort.Slice(plans, func(i, j int) bool { return plans[i].Slug < plans[j].Slug })
+	return plans, nil
+}
+
+func (s *Store) GetTopicPlan(slug string) (*Plan, error) {
+	if slug == "" || strings.ContainsRune(slug, '/') {
+		return nil, fmt.Errorf("非法主题 slug")
+	}
+	path := filepath.Join(s.TopicsDir(), slug, "plan.md")
+	doc, err := s.readDoc(path)
+	if err != nil {
+		return nil, err
+	}
+	return &Plan{Slug: slug, Path: path, FM: doc.Map(), Body: doc.Body}, nil
+}
+
 // ---------- 材料 ----------
 
 type MaterialMeta struct {

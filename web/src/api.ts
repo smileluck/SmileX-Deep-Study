@@ -100,6 +100,18 @@ export interface QueueCard {
   due?: string
 }
 
+export interface Plan {
+  slug: string
+  topic_name: string
+  fm: Record<string, unknown>
+  body: string
+}
+
+export interface PlansResp {
+  master: { fm: Record<string, unknown>; body: string } | null
+  topics: Plan[]
+}
+
 export interface MasteryResp {
   mastery: Record<
     string,
