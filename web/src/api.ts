@@ -95,6 +95,7 @@ export interface QueueCard {
   front: string
   back: string
   body: string
+  hint?: string
   topic: string
   note: string | null
   type: string

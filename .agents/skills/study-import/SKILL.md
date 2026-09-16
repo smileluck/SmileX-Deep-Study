@@ -16,7 +16,7 @@ description: 把 data/inbox/ 中的学习材料导入系统：提取内容、建
 2. **确定主题**：用户给了 topic-slug 就用；否则根据材料内容起一个 kebab-case slug，在 `data/topics/<slug>/manifest.json` 建主题（字段：slug/name/goal/created/description，goal 可先留空问用户）。
 3. **归档材料**：把文件移动到 `data/library/`，重命名为 `<materials.json 当前最大 id + 1>-<原文件名>`；在 `data/library/materials.json` 数组**追加** `{id, original_name, stored_name, topic, status: "imported", imported_at: <今天>}`。
 4. **写原子笔记**：通读材料后先梳理概念的学习依赖顺序（先修概念在前），按该顺序为每篇笔记分配 `order`（frontmatter 字段，主题内从 1 递增；追加导入已有主题时从该主题现有 max(order) 续排）。为材料中每个值得学的独立概念写一篇 `data/notes/<kebab-id>.md`（按角色纪律：自己的话重组、原子化、带 links）。
-5. **起草卡片**：每篇笔记 2-5 张 `data/cards/<note-id>-cN.md`，质量标准见角色铁律 3；frontmatter 的 `fsrs:` 块原样复制 AGENTS.md 的全零模板。
+5. **起草卡片**：每篇笔记 2-5 张 `data/cards/<note-id>-cN.md`，质量标准见角色铁律 3；每张卡必须写 `hint`（15-40 字回忆抓手，只给思考方向，不给答案）；frontmatter 的 `fsrs:` 块原样复制 AGENTS.md 的全零模板。
 6. **写会话日志**：`data/sessions/YYYYMMDD-import-<topic>.md`（type: import），并在 `data/progress/mastery.json` 为该 topic 新建条目（level 0，evidence 记 kind: import）。
 7. **收尾自检（必须）**：执行 `curl -s http://127.0.0.1:5574/api/validate`——`errors` 必须清零；有错就修复后重跑，直到干净。
 8. **报告**：列出新建/更新的全部文件 + 校验结果，提醒用户到 Web UI（默认 http://127.0.0.1:5574）查看到期队列开始复习。

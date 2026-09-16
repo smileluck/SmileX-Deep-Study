@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Eye, PenLine, PartyPopper, Repeat } from 'lucide-react'
+import { PenLine, PartyPopper, Repeat } from 'lucide-react'
 import { get, post, type MasteryResp, type QueueCard, type Topic } from '../api'
 
-// 队列播放器：先回忆后揭示（检索练习），四档自评走 FSRS；
+// 队列播放器：先评分后揭示（检索练习），四档自评走 FSRS，确认答案后手动点「下一张」；
 // 自由回忆模式把答案写给 harness 事后批改。支持按主题过滤队列。
 // mode=learn 只放待学新卡；mode=review 只放已学到期卡。
 export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
@@ -13,6 +13,8 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
   const [recallMode, setRecallMode] = useState(false)
   const [recallText, setRecallText] = useState('')
   const [recallSaved, setRecallSaved] = useState(false)
+  // 已提交的评分档位：非 null 表示本卡已评分并揭示答案
+  const [graded, setGraded] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(0)
   const [err, setErr] = useState('')
@@ -33,6 +35,7 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
     setRecallMode(false)
     setRecallText('')
     setRecallSaved(false)
+    setGraded(null)
     setDone(0)
     setErr('')
     const q = `?mode=${mode}${topic ? `&topic=${encodeURIComponent(topic)}` : ''}`
@@ -84,46 +87,56 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
       </select>
     ) : null
 
+  // 第一步：提交评分，成功后揭示答案（不自动跳下一张）；失败不揭示、可重试
   const grade = useCallback(
     async (rating: number) => {
-      if (!card || busy) return
+      if (!card || busy || revealed) return
       setBusy(true)
       try {
         await post('/api/review/grade', { id: card.id, rating })
         setDone((d) => d + 1)
-        setRevealed(false)
-        setRecallMode(false)
-        setRecallText('')
-        setRecallSaved(false)
-        if (idx + 1 >= total) {
-          setQueue([])
-        } else {
-          setIdx((i) => i + 1)
-        }
+        setGraded(rating)
+        setRevealed(true)
       } catch (e) {
         setErr(String((e as Error).message))
       } finally {
         setBusy(false)
       }
     },
-    [card, busy, idx, total],
+    [card, busy, revealed],
   )
+
+  // 第二步：推进到下一张（或清空队列），并重置本卡状态
+  const next = useCallback(() => {
+    setRevealed(false)
+    setRecallMode(false)
+    setRecallText('')
+    setRecallSaved(false)
+    setGraded(null)
+    if (idx + 1 >= total) {
+      setQueue([])
+    } else {
+      setIdx((i) => i + 1)
+    }
+  }, [idx, total])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLTextAreaElement | null
       // 自由回忆模式下，仅在输入框可编辑时放行按键给它
       if (recallMode && target?.tagName === 'TEXTAREA' && !target.disabled) return
-      if (e.code === 'Space' && !revealed) {
-        e.preventDefault()
-        setRevealed(true)
-      } else if (revealed && ['1', '2', '3', '4'].includes(e.key)) {
+      if (!revealed && ['1', '2', '3', '4'].includes(e.key)) {
+        // 未评分：1-4 直接评分并揭示
         grade(Number(e.key))
+      } else if (revealed && (e.code === 'Space' || e.key === 'Enter')) {
+        // 已评分：空格/回车 = 下一张
+        e.preventDefault()
+        next()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [revealed, grade, recallMode])
+  }, [revealed, grade, next, recallMode])
 
   const saveRecall = async () => {
     if (!card || !recallText.trim()) return
@@ -211,6 +224,13 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
             </div>
             <h2 className="mt-3 text-lg leading-relaxed font-medium whitespace-pre-wrap">{card.front}</h2>
 
+            {card.hint && (
+              <div className="mt-3 w-full rounded-xl bg-warning/10 p-4 text-sm leading-relaxed">
+                <span className="mr-2 text-xs font-semibold opacity-60">提示</span>
+                {card.hint}
+              </div>
+            )}
+
             {recallMode && (
               <div className="mt-2 w-full">
                 <textarea
@@ -230,20 +250,22 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
               </div>
             )}
 
-            {revealed ? (
-              <div className="mt-4 w-full rounded-xl bg-secondary/8 p-5 text-[15px] leading-relaxed whitespace-pre-wrap">
-                {card.back}
-              </div>
-            ) : (
-              <button className="btn btn-primary btn-outline mt-6 gap-2" onClick={() => setRevealed(true)}>
-                <Eye className="h-4 w-4" /> 显示答案 <kbd className="kbd kbd-sm">空格</kbd>
-              </button>
+            {revealed && (
+              <>
+                <div className="mt-4 w-full rounded-xl bg-secondary/8 p-5 text-[15px] leading-relaxed whitespace-pre-wrap">
+                  {card.back}
+                </div>
+                <button className="btn btn-primary mt-4 gap-2" onClick={next}>
+                  下一张 <kbd className="kbd kbd-sm">空格</kbd>
+                </button>
+              </>
             )}
           </div>
         </div>
       )}
 
-      <div className={`mt-6 grid grid-cols-4 gap-3 transition-opacity ${revealed ? '' : 'pointer-events-none opacity-30'}`}>
+      {/* 四档评分始终可点击；已评分后高亮所选档位，其余变淡禁用 */}
+      <div className="mt-6 grid grid-cols-4 gap-3 transition-opacity">
         {[
           { r: 1, label: '重来', sub: '完全想不起', cls: 'btn-error' },
           { r: 2, label: '困难', sub: '想了很久', cls: 'btn-warning' },
@@ -252,9 +274,9 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
         ].map(({ r, label, sub, cls }) => (
           <button
             key={r}
-            className={`btn ${cls} flex flex-col gap-0 py-3 text-primary-content`}
+            className={`btn ${cls} flex flex-col gap-0 py-3 text-primary-content ${revealed && graded !== r ? 'opacity-30' : ''}`}
             onClick={() => grade(r)}
-            disabled={busy}
+            disabled={busy || revealed}
           >
             <span className="text-sm font-semibold">
               {label} <kbd className="kbd kbd-sm opacity-70">{r}</kbd>
