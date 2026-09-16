@@ -207,6 +207,16 @@ func cardDue(card store.Card) time.Time {
 	return due
 }
 
+// isNewCard 判定待学新卡：无 fsrs 块，或 fsrs 块解析成功且 reps==0（从未评过分）。
+func isNewCard(card store.Card) bool {
+	m := card.CardFSRSMap()
+	if m == nil {
+		return true
+	}
+	st, err := fsrsx.FromMap(m)
+	return err == nil && st.Reps == 0
+}
+
 func (a *API) ReviewQueue(c *gin.Context) {
 	cards, err := a.Store.ListCards()
 	if err != nil {
@@ -214,19 +224,41 @@ func (a *API) ReviewQueue(c *gin.Context) {
 		return
 	}
 	topic := c.Query("topic")
+	mode := c.Query("mode") // learn=只新卡 / review=只已学到期卡 / 其他=混合（兼容旧调用）
 	now := time.Now()
 	var due []store.Card
 	for _, card := range cards {
 		if topic != "" && str(card.FM["topic"]) != topic {
 			continue
 		}
-		d := cardDue(card)
-		if d.IsZero() || !d.After(now) {
-			due = append(due, card)
+		switch mode {
+		case "learn":
+			// 新卡不按 due 过滤，永远可学
+			if isNewCard(card) {
+				due = append(due, card)
+			}
+		case "review":
+			if isNewCard(card) {
+				continue
+			}
+			if d := cardDue(card); d.IsZero() || !d.After(now) {
+				due = append(due, card)
+			}
+		default:
+			if d := cardDue(card); d.IsZero() || !d.After(now) {
+				due = append(due, card)
+			}
 		}
 	}
-	// 主题内按到期时间排序，再按主题交错（检索练习：交错优先）
-	sort.Slice(due, func(i, j int) bool { return cardDue(due[i]).Before(cardDue(due[j])) })
+	if mode == "learn" {
+		// 新卡无到期意义：组内按创建时间升序，再按主题交错
+		sort.SliceStable(due, func(i, j int) bool {
+			return str(due[i].FM["created"]) < str(due[j].FM["created"])
+		})
+	} else {
+		// 主题内按到期时间排序，再按主题交错（检索练习：交错优先）
+		sort.Slice(due, func(i, j int) bool { return cardDue(due[i]).Before(cardDue(due[j])) })
+	}
 	interleaved := interleaveByTopic(due)
 	out := make([]map[string]any, 0, len(interleaved))
 	for _, card := range interleaved {
@@ -493,7 +525,7 @@ func (a *API) GetMastery(c *gin.Context) {
 	perTopic := map[string]map[string]any{}
 	ensure := func(t string) map[string]any {
 		if perTopic[t] == nil {
-			perTopic[t] = map[string]any{"cards": 0, "due": 0, "reviews": 0, "again": 0}
+			perTopic[t] = map[string]any{"cards": 0, "due": 0, "new": 0, "reviews": 0, "again": 0}
 		}
 		return perTopic[t]
 	}
@@ -503,6 +535,11 @@ func (a *API) GetMastery(c *gin.Context) {
 		cardTopic[card.ID] = t
 		m := ensure(t)
 		m["cards"] = m["cards"].(int) + 1
+		if isNewCard(card) {
+			m["new"] = m["new"].(int) + 1
+			continue
+		}
+		// due 只算已学到期卡（口径与 stats 一致）
 		d := cardDue(card)
 		if d.IsZero() || !d.After(now) {
 			m["due"] = m["due"].(int) + 1
@@ -539,17 +576,11 @@ func (a *API) GetStats(c *gin.Context) {
 	dayCount := map[string]int{}
 	dayLearned := map[string]int{}
 	for _, card := range cards {
-		fm := card.CardFSRSMap()
-		if fm == nil {
+		if isNewCard(card) {
 			newCards++
-			due++
 			continue
 		}
-		if st, err := fsrsx.FromMap(fm); err == nil {
-			if st.Reps == 0 {
-				newCards++
-			}
-		}
+		// due_now 只算已学到期卡；待学新卡由 new_cards 单独计数
 		d := cardDue(card)
 		if d.IsZero() || !d.After(now) {
 			due++

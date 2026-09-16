@@ -24,7 +24,7 @@ export default function Mastery() {
   const slugs = [...new Set([...topics, ...Object.keys(data.per_topic)])]
   const current = selected ?? slugs[0]
   const m = data.mastery[current]
-  const stat = data.per_topic[current] ?? { cards: 0, due: 0, reviews: 0, again: 0 }
+  const stat = data.per_topic[current] ?? { cards: 0, due: 0, new: 0, reviews: 0, again: 0 }
   const againRate = stat.reviews > 0 ? Math.round((stat.again / stat.reviews) * 100) : 0
   const evidence = [...(m?.evidence ?? [])].reverse()
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Route, Routes } from 'react-router-dom'
 import {
+  BookOpen,
   BookOpenText,
   FlaskConical,
   FolderOpen,
@@ -17,13 +18,14 @@ import Dashboard from './pages/Dashboard'
 import Library from './pages/Library'
 import Notes from './pages/Notes'
 import Plans from './pages/Plans'
-import Review from './pages/Review'
+import QueuePlayer from './pages/Review'
 import Sessions from './pages/Sessions'
 import Workflows from './pages/Workflows'
 import Mastery from './pages/Mastery'
 
 const nav = [
   { to: '/', label: '仪表盘', icon: Gauge, end: true },
+  { to: '/learn', label: '学习', icon: BookOpen, end: false },
   { to: '/review', label: '复习', icon: Repeat, end: false },
   { to: '/library', label: '资料库', icon: FolderOpen, end: false },
   { to: '/notes', label: '笔记', icon: NotebookPen, end: false },
@@ -33,13 +35,13 @@ const nav = [
   { to: '/mastery', label: '掌握度', icon: Target, end: false },
 ]
 
-function DueBadge() {
+function DueBadge({ field }: { field: 'due_now' | 'new_cards' }) {
   const [due, setDue] = useState(0)
   useEffect(() => {
     let alive = true
     const load = () =>
       get<Stats>('/api/stats')
-        .then((s) => alive && setDue(s.due_now))
+        .then((s) => alive && setDue(s[field]))
         .catch(() => {})
     load()
     const t = setInterval(load, 30_000)
@@ -47,7 +49,7 @@ function DueBadge() {
       alive = false
       clearInterval(t)
     }
-  }, [])
+  }, [field])
   if (!due) return null
   return (
     <span className="badge badge-error badge-sm ml-auto border-none text-error-content">{due}</span>
@@ -83,7 +85,8 @@ export default function App() {
             >
               <Icon className="h-4 w-4" />
               {label}
-              {to === '/review' && <DueBadge />}
+              {to === '/learn' && <DueBadge field="new_cards" />}
+              {to === '/review' && <DueBadge field="due_now" />}
             </NavLink>
           ))}
         </nav>
@@ -98,7 +101,8 @@ export default function App() {
       <main className="h-full flex-1 overflow-y-auto">
         <Routes>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/review" element={<Review />} />
+          <Route path="/learn" element={<QueuePlayer mode="learn" />} />
+          <Route path="/review" element={<QueuePlayer mode="review" />} />
           <Route path="/library" element={<Library />} />
           <Route path="/notes" element={<Notes />} />
           <Route path="/notes/:id" element={<Notes />} />

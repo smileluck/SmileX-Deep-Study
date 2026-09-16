@@ -119,7 +119,7 @@ export interface MasteryResp {
     string,
     { level: number; updated: string; evidence?: { date: string; kind: string; detail: string; delta?: number }[] }
   >
-  per_topic: Record<string, { cards: number; due: number; reviews: number; again: number }>
+  per_topic: Record<string, { cards: number; due: number; new: number; reviews: number; again: number }>
 }
 
 // ---------- 工具 ----------

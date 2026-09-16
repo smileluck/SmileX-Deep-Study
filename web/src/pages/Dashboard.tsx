@@ -23,10 +23,11 @@ export default function Dashboard() {
   if (!stats) return <div className="p-8 opacity-60">加载中…</div>
 
   const cards = [
-    { label: '今日到期', value: stats.due_now, icon: CalendarCheck, to: '/review', cta: '开始复习' },
-    { label: '卡片总数', value: stats.total_cards, icon: Layers, to: '/notes', cta: '看笔记' },
+    { label: '待复习', value: stats.due_now, icon: CalendarCheck, to: '/review', cta: '开始复习' },
+    { label: '待学新卡', value: stats.new_cards, icon: BookOpen, to: '/learn', cta: '去学新卡' },
     { label: '今日已复习', value: stats.reviews_today, icon: TrendingUp, to: '/mastery', cta: '掌握度' },
     { label: '今日新学', value: stats.learned_today, icon: BookOpen, to: '/notes', cta: '看笔记' },
+    { label: '卡片总数', value: stats.total_cards, icon: Layers, to: '/notes', cta: '看笔记' },
     { label: '连续天数', value: stats.streak, icon: CalendarCheck, to: '/sessions', cta: '会话记录' },
   ]
 
@@ -37,7 +38,7 @@ export default function Dashboard() {
         调度在这里，导师在 harness 里 —— 需要理解类帮助时去「工作流」页复制命令。
       </p>
 
-      <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-3">
         {cards.map(({ label, value, icon: Icon, to, cta }) => (
           <Link key={label} to={to} className="card bg-base-100 shadow-sm transition-shadow hover:shadow-md">
             <div className="card-body gap-1 p-5">
@@ -121,13 +122,19 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {stats.due_now > 0 && (
-        <Link
-          to="/review"
-          className="btn btn-primary mt-8 w-full gap-2 text-base font-normal shadow"
-        >
-          <Play className="h-4 w-4" /> 开始复习（{stats.due_now} 张到期）
-        </Link>
+      {(stats.due_now > 0 || stats.new_cards > 0) && (
+        <div className="mt-8 flex flex-col gap-3">
+          {stats.due_now > 0 && (
+            <Link to="/review" className="btn btn-primary w-full gap-2 text-base font-normal shadow">
+              <Play className="h-4 w-4" /> 开始复习（{stats.due_now} 张到期）
+            </Link>
+          )}
+          {stats.new_cards > 0 && (
+            <Link to="/learn" className="btn btn-outline w-full gap-2 text-base font-normal">
+              <BookOpen className="h-4 w-4" /> 去学新卡（{stats.new_cards} 张待学）
+            </Link>
+          )}
+        </div>
       )}
     </div>
   )

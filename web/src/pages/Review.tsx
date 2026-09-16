@@ -3,9 +3,10 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { Eye, PenLine, PartyPopper, Repeat } from 'lucide-react'
 import { get, post, type MasteryResp, type QueueCard, type Topic } from '../api'
 
-// 复习播放器：先回忆后揭示（检索练习），四档自评走 FSRS；
+// 队列播放器：先回忆后揭示（检索练习），四档自评走 FSRS；
 // 自由回忆模式把答案写给 harness 事后批改。支持按主题过滤队列。
-export default function Review() {
+// mode=learn 只放待学新卡；mode=review 只放已学到期卡。
+export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
   const [queue, setQueue] = useState<QueueCard[] | null>(null)
   const [idx, setIdx] = useState(0)
   const [revealed, setRevealed] = useState(false)
@@ -15,13 +16,13 @@ export default function Review() {
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(0)
   const [err, setErr] = useState('')
-  // 所选主题同步到 URL（/review?topic=xxx），刷新后保留；为空时移除参数
+  // 所选主题同步到 URL（/learn 或 /review?topic=xxx），刷新后保留；为空时移除参数
   const [searchParams, setSearchParams] = useSearchParams()
   const topic = searchParams.get('topic') ?? ''
   const setTopic = (t: string) => setSearchParams(t ? { topic: t } : {}, { replace: true })
   const [topics, setTopics] = useState<Topic[]>([])
-  const [dueByTopic, setDueByTopic] = useState<Record<string, number>>({})
-  // 请求序号：切换主题时递增，过期响应直接丢弃（竞态防护）
+  const [countByTopic, setCountByTopic] = useState<Record<string, number>>({})
+  // 请求序号：切换主题/模式时递增，过期响应直接丢弃（竞态防护）
   const reqSeq = useRef(0)
 
   const load = useCallback(() => {
@@ -34,7 +35,7 @@ export default function Review() {
     setRecallSaved(false)
     setDone(0)
     setErr('')
-    const q = topic ? `?topic=${encodeURIComponent(topic)}` : ''
+    const q = `?mode=${mode}${topic ? `&topic=${encodeURIComponent(topic)}` : ''}`
     get<{ cards: QueueCard[] }>(`/api/review/queue${q}`)
       .then((r) => {
         if (seq === reqSeq.current) setQueue(r.cards)
@@ -45,12 +46,13 @@ export default function Review() {
     get<MasteryResp>('/api/mastery')
       .then((r) => {
         if (seq !== reqSeq.current) return
+        // 计数徽标按模式取数：learn 看待学新卡，review 看已学到期
         const m: Record<string, number> = {}
-        for (const [k, v] of Object.entries(r.per_topic ?? {})) m[k] = v.due
-        setDueByTopic(m)
+        for (const [k, v] of Object.entries(r.per_topic ?? {})) m[k] = mode === 'learn' ? v.new : v.due
+        setCountByTopic(m)
       })
       .catch(() => {})
-  }, [topic])
+  }, [topic, mode])
 
   useEffect(load, [load])
 
@@ -63,20 +65,20 @@ export default function Review() {
   const card = queue?.[idx]
   const total = queue?.length ?? 0
 
-  const topicSlugs = Array.from(new Set([...topics.map((t) => t.slug), ...Object.keys(dueByTopic)]))
+  const topicSlugs = Array.from(new Set([...topics.map((t) => t.slug), ...Object.keys(countByTopic)]))
   const picker =
     topicSlugs.length > 0 ? (
       <select
         className="select select-bordered select-sm max-w-48"
         value={topic}
         onChange={(e) => setTopic(e.target.value)}
-        title="选择要复习的主题"
+        title={mode === 'learn' ? '选择要学习的主题' : '选择要复习的主题'}
       >
         <option value="">全部主题</option>
         {topicSlugs.map((s) => (
           <option key={s} value={s}>
             {topics.find((t) => t.slug === s)?.name || s}
-            {dueByTopic[s] ? `（${dueByTopic[s]} 到期）` : ''}
+            {countByTopic[s] ? `（${countByTopic[s]} ${mode === 'learn' ? '新卡' : '到期'}）` : ''}
           </option>
         ))}
       </select>
@@ -151,14 +153,21 @@ export default function Review() {
         </div>
         <h1 className="text-lg font-bold">
           {done > 0
-            ? `队列完成，共复习 ${done} 张`
-            : topic
-              ? '该主题当前没有到期卡片'
-              : '当前没有到期卡片'}
+            ? mode === 'learn'
+              ? `队列完成，共学习 ${done} 张新卡`
+              : `队列完成，共复习 ${done} 张`
+            : mode === 'learn'
+              ? topic
+                ? '该主题没有待学新卡'
+                : '没有待学新卡'
+              : topic
+                ? '该主题当前没有到期卡片'
+                : '当前没有到期卡片'}
         </h1>
         <p className="max-w-md text-sm opacity-60">
-          FSRS 会把下次复习安排在记忆临界点上。空档期可以去 harness 里跑一次自测或费曼
-          （「工作流」页有现成命令），或回「仪表盘」看看全局。
+          {mode === 'learn'
+            ? '新卡来自 harness 的导入/诊断工作流。想补充材料时去「工作流」页跑导入，或回「仪表盘」看看全局。'
+            : 'FSRS 会把下次复习安排在记忆临界点上。空档期可以去 harness 里跑一次自测或费曼（「工作流」页有现成命令），或回「仪表盘」看看全局。'}
         </p>
         <div className="mt-2 flex gap-2">
           <button className="btn btn-outline btn-sm" onClick={load}>
@@ -199,9 +208,6 @@ export default function Review() {
           <div className="card-body flex-col items-start p-8">
             <div className="flex items-center gap-2">
               <span className="badge badge-ghost badge-sm">{card.topic || '未分类'}</span>
-              {card.state_name === 'new' && (
-                <span className="badge badge-primary badge-outline badge-sm">新卡</span>
-              )}
             </div>
             <h2 className="mt-3 text-lg leading-relaxed font-medium whitespace-pre-wrap">{card.front}</h2>
 
