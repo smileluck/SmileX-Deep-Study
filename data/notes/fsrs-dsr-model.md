@@ -2,6 +2,7 @@
 id: fsrs-dsr-model
 title: FSRS 的记忆三变量模型（D/S/R）
 topic: spaced-repetition
+order: 2
 tags: [fsrs, memory-model]
 source: library/1-fsrs-入门材料.md
 links: [fsrs-vs-sm2, fsrs-rating-semantics]

@@ -2,6 +2,7 @@
 id: core-literacy-answer-structure
 title: '核心素养题的通用答题结构（四段式）'
 topic: math-teaching-theory
+order: 9
 tags: [课标, 核心素养, 答题结构]
 source: library/2-(仅高)数学学科教学论简答题资料整理（高级中学）.pdf
 links: [core-literacy-math-abstraction, core-literacy-logical-reasoning, core-literacy-mathematical-modeling, core-literacy-intuitive-imagination, core-literacy-mathematical-operation]

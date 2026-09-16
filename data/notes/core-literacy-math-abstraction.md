@@ -2,6 +2,7 @@
 id: core-literacy-math-abstraction
 title: '数学抽象核心素养'
 topic: math-teaching-theory
+order: 4
 tags: [课标, 核心素养, 数学抽象]
 source: library/2-(仅高)数学学科教学论简答题资料整理（高级中学）.pdf
 links: [core-literacy-answer-structure, core-literacy-logical-reasoning, four-bases-curriculum-goal]

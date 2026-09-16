@@ -2,6 +2,7 @@
 id: case-analysis-process
 title: '教学过程评析：宏观五方面 + 四个专项类型'
 topic: math-teaching-theory
+order: 23
 tags: [案例分析, 教学过程]
 source: library/2-(仅高)数学学科教学论简答题资料整理（高级中学）.pdf
 links: [case-analysis-objectives, common-teaching-methods]

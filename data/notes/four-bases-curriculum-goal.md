@@ -2,6 +2,7 @@
 id: four-bases-curriculum-goal
 title: '"四基"课程目标：基础知识、基本技能、基本思想、基本活动经验'
 topic: math-teaching-theory
+order: 2
 tags: [课标, 四基, 课程目标]
 source: library/2-(仅高)数学学科教学论简答题资料整理（高级中学）.pdf
 links: [core-literacy-math-abstraction, math-thinking-methods]

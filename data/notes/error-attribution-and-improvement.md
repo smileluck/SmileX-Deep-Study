@@ -2,6 +2,7 @@
 id: error-attribution-and-improvement
 title: '错误归因评析与改进建议'
 topic: math-teaching-theory
+order: 24
 tags: [案例分析, 错误归因]
 source: library/2-(仅高)数学学科教学论简答题资料整理（高级中学）.pdf
 links: [case-analysis-process, teaching-process-design]

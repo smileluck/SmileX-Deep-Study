@@ -2,6 +2,7 @@
 id: fsrs-rating-semantics
 title: 四档评分的语义与目标记忆率
 topic: spaced-repetition
+order: 3
 tags: [fsrs, rating, retention]
 source: library/1-fsrs-入门材料.md
 links: [fsrs-dsr-model]

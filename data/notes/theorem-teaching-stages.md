@@ -2,6 +2,7 @@
 id: theorem-teaching-stages
 title: '数学定理教学的基本环节'
 topic: math-teaching-theory
+order: 17
 tags: [教学知识, 定理教学]
 source: library/2-(仅高)数学学科教学论简答题资料整理（高级中学）.pdf
 links: [teaching-design-objectives, concept-definition-methods]

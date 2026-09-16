@@ -2,6 +2,7 @@
 id: testing-effect
 title: 测试效应——为什么"考自己"比"再读一遍"有效
 topic: spaced-repetition
+order: 1
 tags: [retrieval-practice, evidence]
 source: library/1-fsrs-入门材料.md
 links: [fsrs-dsr-model]

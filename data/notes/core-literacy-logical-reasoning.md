@@ -2,6 +2,7 @@
 id: core-literacy-logical-reasoning
 title: '逻辑推理核心素养'
 topic: math-teaching-theory
+order: 5
 tags: [课标, 核心素养, 逻辑推理]
 source: library/2-(仅高)数学学科教学论简答题资料整理（高级中学）.pdf
 links: [core-literacy-answer-structure, core-literacy-math-abstraction]

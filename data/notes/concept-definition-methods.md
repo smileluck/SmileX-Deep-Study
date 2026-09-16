@@ -2,6 +2,7 @@
 id: concept-definition-methods
 title: '数学概念的两种定义方式：属加种差 与 揭示外延'
 topic: math-teaching-theory
+order: 12
 tags: [教学知识, 概念定义]
 source: library/2-(仅高)数学学科教学论简答题资料整理（高级中学）.pdf
 links: [math-thinking-methods, four-bases-curriculum-goal]

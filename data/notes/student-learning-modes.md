@@ -2,6 +2,7 @@
 id: student-learning-modes
 title: '数学中常见的三种学习方式'
 topic: math-teaching-theory
+order: 15
 tags: [教学知识, 学习方式]
 source: library/2-(仅高)数学学科教学论简答题资料整理（高级中学）.pdf
 links: [common-teaching-methods]

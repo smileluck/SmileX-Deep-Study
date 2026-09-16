@@ -53,7 +53,7 @@ export default function Heatmap({ data }: { data: Stats['heatmap'] }) {
               {w.map((c, ci) => (
                 <div
                   key={ci}
-                  title={c ? `${c.date}：${c.count} 次复习` : ''}
+                  title={c ? `${c.date}：${c.count} 次复习${c.learned ? `，新学 ${c.learned} 张` : ''}` : ''}
                   className={`h-[13px] w-[13px] rounded-[3px] ${c ? level(c.count) : 'bg-transparent'}`}
                 />
               ))}

@@ -2,6 +2,7 @@
 id: teaching-design-set-operations
 title: '《集合的基本运算》教学设计范例'
 topic: math-teaching-theory
+order: 21
 tags: [教学设计, 案例]
 source: library/2-(仅高)数学学科教学论简答题资料整理（高级中学）.pdf
 links: [teaching-process-design, teaching-design-objectives]

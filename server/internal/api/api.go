@@ -337,6 +337,17 @@ func (a *API) ReviewRecall(c *gin.Context) {
 
 // ---------- 笔记 ----------
 
+// orderOf 提取笔记 frontmatter 的 order（YAML 可能解析为 int 或 float64）。
+func orderOf(fm map[string]any) (int, bool) {
+	switch v := fm["order"].(type) {
+	case int:
+		return v, true
+	case float64:
+		return int(v), true
+	}
+	return 0, false
+}
+
 func (a *API) ListNotes(c *gin.Context) {
 	notes, err := a.Store.ListNotes()
 	if err != nil {
@@ -348,6 +359,22 @@ func (a *API) ListNotes(c *gin.Context) {
 	for _, card := range cards {
 		cardCount[str(card.FM["note"])]++
 	}
+	// 排序：topic 字母序优先；同 topic 内有 order 的升序在前，无 order 的排末尾按 id 字母序
+	sort.SliceStable(notes, func(i, j int) bool {
+		ti, tj := str(notes[i].FM["topic"]), str(notes[j].FM["topic"])
+		if ti != tj {
+			return ti < tj
+		}
+		oi, okI := orderOf(notes[i].FM)
+		oj, okJ := orderOf(notes[j].FM)
+		if okI != okJ {
+			return okI
+		}
+		if okI && oi != oj {
+			return oi < oj
+		}
+		return notes[i].ID < notes[j].ID
+	})
 	out := make([]map[string]any, 0, len(notes))
 	for _, n := range notes {
 		m := map[string]any{
@@ -355,6 +382,9 @@ func (a *API) ListNotes(c *gin.Context) {
 			"tags": n.FM["tags"], "links": n.FM["links"], "created": str(n.FM["created"]),
 			"cards": cardCount[n.ID],
 			"gaps":  strings.Count(n.Body, "] "),
+		}
+		if o, ok := orderOf(n.FM); ok {
+			m["order"] = o
 		}
 		out = append(out, m)
 	}
@@ -505,8 +535,9 @@ func (a *API) GetStats(c *gin.Context) {
 	now := time.Now()
 	today := now.Format("2006-01-02")
 
-	due, newCards, reviewsToday := 0, 0, 0
+	due, newCards, reviewsToday, learnedToday := 0, 0, 0, 0
 	dayCount := map[string]int{}
+	dayLearned := map[string]int{}
 	for _, card := range cards {
 		fm := card.CardFSRSMap()
 		if fm == nil {
@@ -531,6 +562,14 @@ func (a *API) GetStats(c *gin.Context) {
 			if key == today {
 				reviewsToday++
 			}
+			// StateBefore==0（New 态）的首次评分计为新学；
+			// 限 rating 1-4，跳过 W5 批改追加的 {"graded":true} 行（无 rating，解析为 0）
+			if e.StateBefore == 0 && e.Rating >= 1 && e.Rating <= 4 {
+				dayLearned[key]++
+				if key == today {
+					learnedToday++
+				}
+			}
 		}
 	}
 	// 连续天数：从今天（无则从昨天）往回数有复习记录的日子
@@ -550,7 +589,7 @@ func (a *API) GetStats(c *gin.Context) {
 	var heatmap []map[string]any
 	for i := 89; i >= 0; i-- {
 		d := now.AddDate(0, 0, -i).Format("2006-01-02")
-		heatmap = append(heatmap, map[string]any{"date": d, "count": dayCount[d]})
+		heatmap = append(heatmap, map[string]any{"date": d, "count": dayCount[d], "learned": dayLearned[d]})
 	}
 	// 最近会话
 	recent := []map[string]any{}
@@ -572,7 +611,7 @@ func (a *API) GetStats(c *gin.Context) {
 	}
 	c.JSON(200, gin.H{
 		"total_cards": len(cards), "due_now": due, "new_cards": newCards,
-		"reviews_today": reviewsToday, "streak": streak,
+		"reviews_today": reviewsToday, "learned_today": learnedToday, "streak": streak,
 		"heatmap": heatmap, "recent_sessions": recent, "mastery": masterySummary,
 	})
 }

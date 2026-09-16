@@ -35,6 +35,7 @@ roles/              # 角色定义（身份+纪律）：导师/测验官/初学�
 id: fsrs-memory-model
 title: FSRS 的记忆三变量模型
 topic: spaced-repetition
+order: 1                        # 主题内递进序号：同一 topic 从 1 递增，先修概念在前
 tags: [fsrs, memory]
 source: library/1-fsrs-guide.pdf
 links: [spacing-effect]          # 其他笔记 id，建立笔记网络
@@ -45,6 +46,8 @@ created: 2026-09-13
 ## Gaps
 - [2026-09-13] 说不清 difficulty 与 stability 的交互 → 已补卡 card-003
 ```
+
+- `order` 表达学习依赖递进（先修概念在前），仅在同一 topic 内比较；新增笔记取该 topic 现有 max(order)+1。
 
 ### 卡片 `data/cards/<id>.md`（id = 文件名，建议 `<note-id>-c1` 递增）
 

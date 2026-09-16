@@ -2,6 +2,7 @@
 id: hs-math-curriculum-nature
 title: '高中数学课程的性质：基础性、选择性、发展性'
 topic: math-teaching-theory
+order: 1
 tags: [课标, 课程性质]
 source: library/2-(仅高)数学学科教学论简答题资料整理（高级中学）.pdf
 links: [curriculum-structure-basis, four-bases-curriculum-goal]

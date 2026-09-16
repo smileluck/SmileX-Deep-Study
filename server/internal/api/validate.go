@@ -90,6 +90,13 @@ func (a *API) Validate(c *gin.Context) {
 
 	// ---- 笔记 ----
 	if ids, err := a.Store.NoteIDs(); err == nil {
+		// 主题内 order 统计：同 topic 重复、或部分有部分没有 → warning（非 error）
+		type orderStat struct {
+			byOrder map[int][]string // order → 笔记 id
+			total   int
+			ordered int
+		}
+		orderStats := map[string]*orderStat{}
 		for _, id := range ids {
 			checked["notes"]++
 			note, err := a.Store.GetNote(id)
@@ -100,6 +107,19 @@ func (a *API) Validate(c *gin.Context) {
 			}
 			var issues []string
 			fm := note.FM
+			topic, _ := fm["topic"].(string)
+			if topic != "" {
+				st := orderStats[topic]
+				if st == nil {
+					st = &orderStat{byOrder: map[int][]string{}}
+					orderStats[topic] = st
+				}
+				st.total++
+				if o, ok := orderOf(fm); ok {
+					st.ordered++
+					st.byOrder[o] = append(st.byOrder[o], id)
+				}
+			}
 			if v, _ := fm["id"].(string); v != id {
 				issues = append(issues, "frontmatter id 与文件名不一致")
 			}
@@ -117,6 +137,18 @@ func (a *API) Validate(c *gin.Context) {
 			if strings.TrimSpace(note.Body) == "" {
 				warns = append(warns, validationIssue{File: "notes/" + id + ".md", Kind: "note",
 					Issues: []string{"正文为空（原子笔记应有自己的话的阐述）"}})
+			}
+		}
+		for topic, st := range orderStats {
+			if st.ordered > 0 && st.ordered < st.total {
+				warns = append(warns, validationIssue{File: "notes/", Kind: "note",
+					Issues: []string{fmt.Sprintf("主题 %s：%d/%d 篇笔记有 order，其余缺失（同一主题内应全部带递进序号）", topic, st.ordered, st.total)}})
+			}
+			for o, noteIDs := range st.byOrder {
+				if len(noteIDs) > 1 {
+					warns = append(warns, validationIssue{File: "notes/", Kind: "note",
+						Issues: []string{fmt.Sprintf("主题 %s：order=%d 重复（%s）", topic, o, strings.Join(noteIDs, ", "))}})
+				}
 			}
 		}
 	}

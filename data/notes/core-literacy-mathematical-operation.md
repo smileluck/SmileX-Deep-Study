@@ -2,6 +2,7 @@
 id: core-literacy-mathematical-operation
 title: '数学运算核心素养'
 topic: math-teaching-theory
+order: 8
 tags: [课标, 核心素养, 数学运算]
 source: library/2-(仅高)数学学科教学论简答题资料整理（高级中学）.pdf
 links: [core-literacy-answer-structure, core-literacy-logical-reasoning]

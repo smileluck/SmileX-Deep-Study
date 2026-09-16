@@ -2,6 +2,7 @@
 id: curriculum-structure-basis
 title: '高中课程结构设计的四方面依据'
 topic: math-teaching-theory
+order: 3
 tags: [课标, 课程结构]
 source: library/2-(仅高)数学学科教学论简答题资料整理（高级中学）.pdf
 links: [hs-math-curriculum-nature, teaching-evaluation-principles]

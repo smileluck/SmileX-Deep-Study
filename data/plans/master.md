@@ -18,20 +18,23 @@ updated: 2026-09-15
 
 ## 优先级与顺序
 
-- **P0 — math-teaching-theory**：有明确期限（2 周）、占分最重、基线覆盖率仅 5.3%。全部新内容投入此主题，路径为「清 76 张卡建立基线 → 课标 → 教学知识 → 教学设计 → 案例分析 → 混合模拟」。
-- **P1 — spaced-repetition**：卡片已 100% 建过基线且评分健康，属于**支撑复习系统本身的元知识**。不排新内容，只保留每日复习队列；若 review-log 中该主题出现 Again 率上升或 lapses 累积，再升级为 P0 重学。
+**两主题并行**（2026-09-15 学习者确认重排）：
+
+- **P0 主线 — math-teaching-theory**：有明确期限（2 周）、占分最重、基线覆盖率仅 5.3%。新内容的整块时间投入此主题，路径为「清 76 张卡建立基线 → 课标 → 教学知识 → 教学设计 → 案例分析 → 混合模拟」。
+- **P0 并行 — spaced-repetition**：体量小（4 篇笔记 / 9 张卡）、基线健康（9/9 评过且评分良好），且是**支撑复习系统本身的元知识**。用每天 20-30 分钟切片时间排精读与输出检验（tutor → feynman → quiz），不挤占数学整块时间；目标是 2 周内 mastery ≥ 3。
 - 依据：以上排序引用 `progress/mastery.json` 的 level 与 evidence 字段，以及 `review-log.jsonl` 的卡片覆盖率——不凭感觉决定先学什么。
 
 ## 每周节奏
 
-按每周可投入时间 T（当前 2 周窗口内假定 >10h）分配：
+按每周可投入时间 T（当前 2 周窗口内已确认 >10h）分配：
 
 - 复习队列保底 **25%**——每天清空，不可被新内容挤掉
-- 新内容 / 精读 / 手写练习 **35%**
-- 自测 + 费曼 + 诊断 **20%**
+- 数学新内容 / 精读 / 手写练习 **30%**
+- spaced-repetition 精读 + 费曼 + 自测 **10%**（每日切片，与数学交错）
+- 自测 + 诊断（数学） **15%**
 - 缓冲 **20%**——消化积压与补漏
 
 ## 主题计划索引
 
-- [math-teaching-theory](topics/math-teaching-theory/plan.md) — 2 周冲刺，P0，active
-- spaced-repetition — 暂无独立计划（维持性复习）；需要时跑 `/study:plan spaced-repetition` 生成
+- [math-teaching-theory](topics/math-teaching-theory/plan.md) — 2 周冲刺，P0 主线，active
+- [spaced-repetition](topics/spaced-repetition/plan.md) — 2 周并行精读，P0 并行，active

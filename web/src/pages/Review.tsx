@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Eye, PenLine, PartyPopper, Repeat } from 'lucide-react'
 import { get, post, type MasteryResp, type QueueCard, type Topic } from '../api'
 
@@ -15,21 +15,36 @@ export default function Review() {
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(0)
   const [err, setErr] = useState('')
-  const [topic, setTopic] = useState('')
+  // 所选主题同步到 URL（/review?topic=xxx），刷新后保留；为空时移除参数
+  const [searchParams, setSearchParams] = useSearchParams()
+  const topic = searchParams.get('topic') ?? ''
+  const setTopic = (t: string) => setSearchParams(t ? { topic: t } : {}, { replace: true })
   const [topics, setTopics] = useState<Topic[]>([])
   const [dueByTopic, setDueByTopic] = useState<Record<string, number>>({})
+  // 请求序号：切换主题时递增，过期响应直接丢弃（竞态防护）
+  const reqSeq = useRef(0)
 
   const load = useCallback(() => {
+    const seq = ++reqSeq.current
     setQueue(null)
     setIdx(0)
+    setRevealed(false)
+    setRecallMode(false)
+    setRecallText('')
+    setRecallSaved(false)
     setDone(0)
     setErr('')
     const q = topic ? `?topic=${encodeURIComponent(topic)}` : ''
     get<{ cards: QueueCard[] }>(`/api/review/queue${q}`)
-      .then((r) => setQueue(r.cards))
-      .catch((e) => setErr(String(e.message ?? e)))
+      .then((r) => {
+        if (seq === reqSeq.current) setQueue(r.cards)
+      })
+      .catch((e) => {
+        if (seq === reqSeq.current) setErr(String(e.message ?? e))
+      })
     get<MasteryResp>('/api/mastery')
       .then((r) => {
+        if (seq !== reqSeq.current) return
         const m: Record<string, number> = {}
         for (const [k, v] of Object.entries(r.per_topic ?? {})) m[k] = v.due
         setDueByTopic(m)
@@ -122,7 +137,8 @@ export default function Review() {
   if (!queue)
     return (
       <div className="p-8">
-        <div className="loading loading-dots loading-lg text-primary" />
+        {picker}
+        <div className="loading loading-dots loading-lg text-primary mt-4" />
       </div>
     )
 

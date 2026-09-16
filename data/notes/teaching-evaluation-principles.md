@@ -2,6 +2,7 @@
 id: teaching-evaluation-principles
 title: '学习评价的四条原则'
 topic: math-teaching-theory
+order: 11
 tags: [课标, 教学评价]
 source: library/2-(仅高)数学学科教学论简答题资料整理（高级中学）.pdf
 links: [core-literacy-answer-structure, situation-problem-diversity]

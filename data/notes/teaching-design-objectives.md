@@ -2,6 +2,7 @@
 id: teaching-design-objectives
 title: '教学目标与教学重难点的写法模板'
 topic: math-teaching-theory
+order: 19
 tags: [教学设计, 教学目标]
 source: library/2-(仅高)数学学科教学论简答题资料整理（高级中学）.pdf
 links: [case-analysis-objectives, teaching-process-design]

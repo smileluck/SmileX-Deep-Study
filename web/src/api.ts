@@ -22,8 +22,9 @@ export interface Stats {
   due_now: number
   new_cards: number
   reviews_today: number
+  learned_today: number
   streak: number
-  heatmap: { date: string; count: number }[]
+  heatmap: { date: string; count: number; learned?: number }[]
   recent_sessions: { id: string; type: string; topic: string; date: string; summary: string }[] | null
   mastery: Record<string, { level: number; updated: string }>
 }
@@ -63,6 +64,7 @@ export interface NoteListItem {
   links: string[] | null
   created: string
   cards: number
+  order?: number
 }
 
 export interface NoteDetail {

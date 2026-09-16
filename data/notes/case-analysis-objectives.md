@@ -2,6 +2,7 @@
 id: case-analysis-objectives
 title: '教学目标评析的七个切入点'
 topic: math-teaching-theory
+order: 22
 tags: [案例分析, 教学目标]
 source: library/2-(仅高)数学学科教学论简答题资料整理（高级中学）.pdf
 links: [teaching-design-objectives, case-analysis-process]

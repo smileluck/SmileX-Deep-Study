@@ -2,6 +2,7 @@
 id: fsrs-vs-sm2
 title: FSRS 与 SM-2 的本质区别
 topic: spaced-repetition
+order: 4
 tags: [fsrs, sm2, comparison]
 source: library/1-fsrs-入门材料.md
 links: [fsrs-dsr-model]

@@ -306,7 +306,12 @@ export default function Notes() {
                                   id === n.id ? 'bg-primary/10 font-medium text-primary' : 'hover:bg-base-200'
                                 }`}
                               >
-                                <div className="truncate">{n.title || n.id}</div>
+                                <div className="flex items-center gap-1.5">
+                                  {n.order != null && (
+                                    <span className="badge badge-ghost badge-xs shrink-0">#{n.order}</span>
+                                  )}
+                                  <div className="truncate">{n.title || n.id}</div>
+                                </div>
                                 {n.cards > 0 && (
                                   <div className="mt-0.5 text-[11px] opacity-50">{n.cards} 卡</div>
                                 )}

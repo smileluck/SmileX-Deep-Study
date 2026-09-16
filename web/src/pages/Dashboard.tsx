@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CalendarCheck, Layers, Play, TrendingUp } from 'lucide-react'
+import { BookOpen, CalendarCheck, Layers, Play, TrendingUp } from 'lucide-react'
 import { get, type Stats } from '../api'
 import Heatmap from '../components/Heatmap'
 
@@ -26,6 +26,7 @@ export default function Dashboard() {
     { label: '今日到期', value: stats.due_now, icon: CalendarCheck, to: '/review', cta: '开始复习' },
     { label: '卡片总数', value: stats.total_cards, icon: Layers, to: '/notes', cta: '看笔记' },
     { label: '今日已复习', value: stats.reviews_today, icon: TrendingUp, to: '/mastery', cta: '掌握度' },
+    { label: '今日新学', value: stats.learned_today, icon: BookOpen, to: '/notes', cta: '看笔记' },
     { label: '连续天数', value: stats.streak, icon: CalendarCheck, to: '/sessions', cta: '会话记录' },
   ]
 
@@ -36,7 +37,7 @@ export default function Dashboard() {
         调度在这里，导师在 harness 里 —— 需要理解类帮助时去「工作流」页复制命令。
       </p>
 
-      <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
         {cards.map(({ label, value, icon: Icon, to, cta }) => (
           <Link key={label} to={to} className="card bg-base-100 shadow-sm transition-shadow hover:shadow-md">
             <div className="card-body gap-1 p-5">

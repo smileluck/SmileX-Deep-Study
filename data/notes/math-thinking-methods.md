@@ -2,6 +2,7 @@
 id: math-thinking-methods
 title: '三种常用数学思想方法：转化与化归、分类讨论、数形结合'
 topic: math-teaching-theory
+order: 13
 tags: [教学知识, 数学思想方法]
 source: library/2-(仅高)数学学科教学论简答题资料整理（高级中学）.pdf
 links: [cultivating-math-thinking, four-bases-curriculum-goal]

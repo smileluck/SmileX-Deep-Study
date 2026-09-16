@@ -2,6 +2,7 @@
 id: common-teaching-methods
 title: '三种常用教学方法：讲授法、谈话法、发现法'
 topic: math-teaching-theory
+order: 16
 tags: [教学知识, 教学方法]
 source: library/2-(仅高)数学学科教学论简答题资料整理（高级中学）.pdf
 links: [student-learning-modes, teaching-process-design]

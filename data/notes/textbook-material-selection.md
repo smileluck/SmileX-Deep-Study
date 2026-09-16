@@ -2,6 +2,7 @@
 id: textbook-material-selection
 title: '教材素材选取的要求'
 topic: math-teaching-theory
+order: 18
 tags: [教学知识, 教材编写]
 source: library/2-(仅高)数学学科教学论简答题资料整理（高级中学）.pdf
 links: [core-literacy-mathematical-modeling, situation-problem-diversity]

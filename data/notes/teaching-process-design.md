@@ -2,6 +2,7 @@
 id: teaching-process-design
 title: '教学过程设计的五环节模板'
 topic: math-teaching-theory
+order: 20
 tags: [教学设计, 教学过程]
 source: library/2-(仅高)数学学科教学论简答题资料整理（高级中学）.pdf
 links: [teaching-design-objectives, common-teaching-methods]

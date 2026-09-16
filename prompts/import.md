@@ -13,7 +13,7 @@
 1. 提取材料内容（PDF/DOCX 等先解析文本；解析不了就如实报告，不许编造）；
 2. 确定或创建 data/topics/<slug>/manifest.json；
 3. 材料移动到 data/library/ 并重命名 <序号>-<原名>，在 data/library/materials.json 追加索引记录；
-4. 为每个值得学的概念写一篇原子笔记 data/notes/<id>.md（用自己的话重组，配 frontmatter 与 links）；
+4. 通读材料后先梳理概念的学习依赖顺序（先修概念在前），按该顺序为每篇笔记分配 `order`；为每个值得学的概念写一篇原子笔记 data/notes/<id>.md（用自己的话重组，配 frontmatter 与 links，order 从 1 递增，追加导入已有主题时从现有 max(order) 续排）；
 5. 每篇笔记起草 2-5 张卡片 data/cards/<id>.md，问"为什么/怎么用/边界在哪"，fsrs: 块原样复制 AGENTS.md 的全零模板；
 6. 写会话日志 data/sessions/YYYYMMDD-import-<topic>.md（type: import），并在 mastery.json 新建该主题条目（level 0）；
 7. 收尾自检：curl -s http://127.0.0.1:5574/api/validate，errors 清零才算完成；

@@ -2,6 +2,7 @@
 id: cultivating-math-thinking
 title: '培养数学思想的三条路径'
 topic: math-teaching-theory
+order: 14
 tags: [教学知识, 数学思想方法]
 source: library/2-(仅高)数学学科教学论简答题资料整理（高级中学）.pdf
 links: [math-thinking-methods, teaching-process-design]
