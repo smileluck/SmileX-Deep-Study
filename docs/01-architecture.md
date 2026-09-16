@@ -45,7 +45,7 @@ SmileX-Deep-Study/
 id: fsrs-memory-model
 title: FSRS 的记忆三变量模型
 topic: spaced-repetition
-order: 1                        # 主题内递进序号（先修概念在前），新增笔记取该 topic max(order)+1
+order: 1                        # 主题内递进序号（先修概念在前），新增笔记默认取该 topic max(order)+1；先修概念可插入对应位置并将后续笔记顺延重排
 tags: [fsrs, memory]
 source: library/1-fsrs-guide.pdf
 links: [spacing-effect]

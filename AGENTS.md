@@ -47,7 +47,7 @@ created: 2026-09-13
 - [2026-09-13] 说不清 difficulty 与 stability 的交互 → 已补卡 card-003
 ```
 
-- `order` 表达学习依赖递进（先修概念在前），仅在同一 topic 内比较；新增笔记取该 topic 现有 max(order)+1。
+- `order` 表达学习依赖递进（先修概念在前），仅在同一 topic 内比较；新增笔记默认取该 topic 现有 max(order)+1；若新笔记是现有笔记的先修（更基础），则插入对应位置并将受影响的现有笔记 `order` 顺延重排（保持主题内唯一递增——`order` 只是排序键，改动不影响卡片与复习状态）。
 
 ### 卡片 `data/cards/<id>.md`（id = 文件名，建议 `<note-id>-c1` 递增）
 
@@ -183,9 +183,9 @@ updated: 2026-09-15
 **角色**：`roles/librarian.md`（导入员）。
 
 1. 读取 `data/inbox/` 中指定文件（PDF/DOCX 等用你可用的解析技能提取文本；无法解析时如实报告）。
-2. 确定或创建 topic（`data/topics/<slug>/manifest.json`，字段：slug/name/goal/created/description/status，`status: active|paused` 缺省 active）。**slug 已存在时复用 manifest**：不重建、不改 goal（description 如需补充可更新）；笔记 `order` 从该主题现有 max(order) 续排，materials.json 正常追加——多个材料可陆续导入同一主题。
+2. 确定或创建 topic（`data/topics/<slug>/manifest.json`，字段：slug/name/goal/created/description/status，`status: active|paused` 缺省 active）。**slug 已存在时复用 manifest**：不重建、不改 goal（description 如需补充可更新）；笔记 `order` 默认从该主题现有 max(order) 续排（新材料含先修概念时按依赖关系插入重排，见步骤 4），materials.json 正常追加——多个材料可陆续导入同一主题。
 3. 将材料移动到 `data/library/`，重命名 `<序号>-<原名>`，并在 `data/library/materials.json` 数组**追加**一条 `{id, original_name, stored_name, topic, status: "imported", imported_at}`。
-4. 产出原子笔记（每个独立概念一篇，含 frontmatter 与 links）。**追加导入已有主题时先做概念去重**：与该主题现有笔记逐一比对——已覆盖的概念不新建笔记，有增量（更清晰的阐述、新例子、修正）就合并进现有笔记正文（`id`/`order`/`created`/`source` 不动，可按需补 `links`）；部分重叠则新笔记与已有笔记 `links` 互链。
+4. 产出原子笔记（每个独立概念一篇，含 frontmatter 与 links）。**追加导入已有主题时先做概念去重**：与该主题现有笔记逐一比对——已覆盖的概念不新建笔记，有增量（更清晰的阐述、新例子、修正）就合并进现有笔记正文（`id`/`order`/`created`/`source` 不动，可按需补 `links`）；部分重叠则新笔记与已有笔记 `links` 互链。**顺序调整**：新笔记默认续排在 max(order) 之后；若某新概念是现有笔记的先修（更基础），将其插入对应位置，受影响现有笔记的 `order` 顺延重排（保持主题内唯一递增——`order` 只是排序键，改动不影响卡片与复习状态）。
 5. 从笔记起草卡片：每篇笔记 2-5 张，优先"为什么/怎么用/边界在哪"类问题，避免纯定义背诵；合并过的笔记只对增量内容补卡，避免与已有卡片题面重复。
 6. 写 `sessions/…-import-….md` 会话日志（正文记录去重比对结果），并在 mastery.json 为该 topic 建条目（level 0，kind: import；已有条目则不重建）。
 7. 跑 `/api/validate` 清零 errors，报告产出清单与校验结果，提醒用户去 Web UI 开始复习。
