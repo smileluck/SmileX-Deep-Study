@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Globe, Map as MapIcon } from 'lucide-react'
 import { get, type Plan, type PlansResp } from '../api'
 import Markdown from '../components/Markdown'
@@ -9,9 +9,21 @@ const statusBadge: Record<string, string> = {
   paused: 'badge-ghost',
 }
 
+// 只统计「## 里程碑」段内（到下一个 ## 标题为止）的 checkbox，周计划里的任务 checkbox 不算里程碑
 function milestones(body: string): { done: number; total: number } {
-  const done = body.match(/- \[[xX]\]/g)?.length ?? 0
-  const todo = body.match(/- \[ \]/g)?.length ?? 0
+  let inSection = false
+  const lines: string[] = []
+  for (const line of body.split('\n')) {
+    if (line.startsWith('## ')) {
+      if (inSection) break
+      inSection = line.slice(3).trim() === '里程碑'
+      continue
+    }
+    if (inSection) lines.push(line)
+  }
+  const section = lines.join('\n')
+  const done = section.match(/- \[[xX]\]/g)?.length ?? 0
+  const todo = section.match(/- \[ \]/g)?.length ?? 0
   return { done, total: done + todo }
 }
 
@@ -20,14 +32,56 @@ const GLOBAL = '__global__'
 export default function Plans() {
   const [data, setData] = useState<PlansResp | null>(null)
   const [tab, setTab] = useState<string>(GLOBAL)
+  const [err, setErr] = useState('')
 
   useEffect(() => {
-    get<PlansResp>('/api/plans').then(setData).catch(() => setData({ master: null, topics: [] }))
+    get<PlansResp>('/api/plans')
+      .then(setData)
+      .catch((e) => setErr(String(e.message ?? e)))
   }, [])
 
+  const topics = useMemo(() => data?.topics ?? [], [data])
+  const master = data?.master ?? null
+
+  // 每个主题计划的里程碑统计只解析一次（tab 徽标 / 全局聚合 / 进度条共用）
+  const msBySlug = useMemo(() => {
+    const m = new Map<string, { done: number; total: number }>()
+    for (const p of topics) m.set(p.slug, milestones(p.body))
+    return m
+  }, [topics])
+
+  // 全局进度 = 各主题计划里程碑的聚合（master.md 自身不维护 checkbox）
+  const agg = useMemo(
+    () =>
+      [...msBySlug.values()].reduce(
+        (acc, ms) => ({ done: acc.done + ms.done, total: acc.total + ms.total }),
+        { done: 0, total: 0 },
+      ),
+    [msBySlug],
+  )
+
+  // 全局计划正文里的 [主题](topics/<slug>/plan.md) 链接 → 切到对应 tab
+  const masterLinkComponents = useMemo(
+    () => ({
+      a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
+        const m = href?.match(/topics\/([^/]+)\/plan\.md/)
+        if (m && topics.some((p) => p.slug === m[1])) {
+          return (
+            <button className="link link-primary" onClick={() => setTab(m[1])}>
+              {children}
+            </button>
+          )
+        }
+        return <a href={href}>{children}</a>
+      },
+    }),
+    [topics],
+  )
+
+  if (err) return <div className="p-8 text-sm text-error">{err}</div>
   if (!data) return <div className="p-8 text-sm opacity-50">加载中…</div>
 
-  const empty = !data.master && data.topics.length === 0
+  const empty = !master && topics.length === 0
 
   if (empty) {
     return (
@@ -40,33 +94,9 @@ export default function Plans() {
     )
   }
 
-  // 全局进度 = 各主题计划里程碑的聚合（master.md 自身不维护 checkbox）
-  const agg = data.topics.reduce(
-    (acc, p) => {
-      const ms = milestones(p.body)
-      return { done: acc.done + ms.done, total: acc.total + ms.total }
-    },
-    { done: 0, total: 0 },
-  )
-
-  const hasMaster = !!data.master
-  const activeTab = tab === GLOBAL && !hasMaster ? (data.topics[0]?.slug ?? GLOBAL) : tab
-  const activePlan = data.topics.find((p) => p.slug === activeTab)
-
-  // 全局计划正文里的 [主题](topics/<slug>/plan.md) 链接 → 切到对应 tab
-  const masterLinkComponents = {
-    a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
-      const m = href?.match(/topics\/([^/]+)\/plan\.md/)
-      if (m && data.topics.some((p) => p.slug === m[1])) {
-        return (
-          <button className="link link-primary" onClick={() => setTab(m[1])}>
-            {children}
-          </button>
-        )
-      }
-      return <a href={href}>{children}</a>
-    },
-  }
+  const hasMaster = !!master
+  const activeTab = tab === GLOBAL && !hasMaster ? (topics[0]?.slug ?? GLOBAL) : tab
+  const activePlan = topics.find((p) => p.slug === activeTab)
 
   return (
     <div className="mx-auto max-w-4xl p-8">
@@ -86,8 +116,8 @@ export default function Plans() {
             全局
           </button>
         )}
-        {data.topics.map((p) => {
-          const ms = milestones(p.body)
+        {topics.map((p) => {
+          const ms = msBySlug.get(p.slug) ?? { done: 0, total: 0 }
           return (
             <button
               key={p.slug}
@@ -106,16 +136,16 @@ export default function Plans() {
         })}
       </div>
 
-      {activeTab === GLOBAL && data.master && (
+      {activeTab === GLOBAL && master && (
         <div className="card mt-4 bg-base-100 shadow-sm">
           <div className="card-body gap-3 p-5">
             <div className="flex items-center gap-2.5">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <MapIcon className="h-4 w-4" />
               </div>
-              <div className="font-semibold">{String(data.master.fm.title ?? '全局学习计划')}</div>
+              <div className="font-semibold">{master.fm.title ?? '全局学习计划'}</div>
               <span className="ml-auto text-xs opacity-50">
-                更新于 {String(data.master.fm.updated ?? '—')}
+                更新于 {master.fm.updated ?? '—'}
               </span>
             </div>
 
@@ -132,10 +162,10 @@ export default function Plans() {
               </div>
             )}
 
-            {data.topics.length > 0 && (
+            {topics.length > 0 && (
               <div className="flex flex-wrap gap-2">
-                {data.topics.map((p) => {
-                  const ms = milestones(p.body)
+                {topics.map((p) => {
+                  const ms = msBySlug.get(p.slug) ?? { done: 0, total: 0 }
                   return (
                     <button key={p.slug} className="btn btn-outline btn-xs" onClick={() => setTab(p.slug)}>
                       {p.topic_name}
@@ -150,21 +180,20 @@ export default function Plans() {
               </div>
             )}
 
-            <Markdown components={masterLinkComponents}>{data.master.body}</Markdown>
+            <Markdown components={masterLinkComponents}>{master.body}</Markdown>
           </div>
         </div>
       )}
 
       {activePlan && (
-        <TopicPlanCard plan={activePlan} />
+        <TopicPlanCard plan={activePlan} ms={msBySlug.get(activePlan.slug) ?? { done: 0, total: 0 }} />
       )}
     </div>
   )
 }
 
-function TopicPlanCard({ plan: p }: { plan: Plan }) {
-  const ms = milestones(p.body)
-  const status = String(p.fm.status ?? '')
+function TopicPlanCard({ plan: p, ms }: { plan: Plan; ms: { done: number; total: number } }) {
+  const status = p.fm.status ?? ''
   return (
     <div className="card mt-4 bg-base-100 shadow-sm">
       <div className="card-body gap-3 p-5">
@@ -178,8 +207,8 @@ function TopicPlanCard({ plan: p }: { plan: Plan }) {
           </span>
         </div>
         <p className="text-[13px] leading-relaxed opacity-70">
-          目标：{String(p.fm.goal ?? '—')}
-          {p.fm.horizon ? <span className="opacity-60"> · 周期：{String(p.fm.horizon)}</span> : null}
+          目标：{p.fm.goal ?? '—'}
+          {p.fm.horizon ? <span className="opacity-60"> · 周期：{p.fm.horizon}</span> : null}
         </p>
         {ms.total > 0 && (
           <div className="flex items-center gap-3">

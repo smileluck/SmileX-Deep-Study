@@ -3,8 +3,10 @@ package api
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -61,9 +63,19 @@ func Register(r *gin.Engine, st *store.Store) {
 	}
 }
 
+// cors 只允许本机来源：无 Origin 头（curl/同源导航）直接放行；
+// 有 Origin 时仅回显 host 为 127.0.0.1/localhost（任意端口，兼容 vite dev）的请求，
+// 其他来源不回 Allow-Origin，浏览器会拦截跨域读写。
 func cors() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
+		if origin := c.GetHeader("Origin"); origin != "" {
+			if u, err := url.Parse(origin); err == nil {
+				switch u.Hostname() {
+				case "127.0.0.1", "localhost", "::1":
+					c.Header("Access-Control-Allow-Origin", origin)
+				}
+			}
+		}
 		c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Content-Type")
 		if c.Request.Method == http.MethodOptions {
@@ -114,7 +126,13 @@ func (a *API) GetWorkflows(c *gin.Context) {
 
 // ---------- 材料 ----------
 
+// uploadExts 上传扩展名白名单（契约目录地图列出的材料格式），小写比较。
+var uploadExts = map[string]bool{
+	".pdf": true, ".docx": true, ".md": true, ".epub": true, ".txt": true,
+}
+
 func (a *API) UploadMaterials(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 50<<20) // 50MB 上限
 	form, err := c.MultipartForm()
 	if err != nil {
 		errJSON(c, 400, fmt.Errorf("需要 multipart form: %w", err))
@@ -130,21 +148,35 @@ func (a *API) UploadMaterials(c *gin.Context) {
 		errJSON(c, 400, fmt.Errorf("未收到文件（字段名 files 或 file）"))
 		return
 	}
+	a.Store.Lock()
+	defer a.Store.Unlock()
 	var saved []string
+	failed := []map[string]string{}
 	for _, fh := range files {
+		if ext := strings.ToLower(filepath.Ext(fh.Filename)); !uploadExts[ext] {
+			failed = append(failed, map[string]string{
+				"name": fh.Filename, "reason": "不支持的扩展名 " + ext,
+			})
+			continue
+		}
 		f, err := fh.Open()
 		if err != nil {
+			failed = append(failed, map[string]string{
+				"name": fh.Filename, "reason": "打开失败: " + err.Error(),
+			})
 			continue
 		}
 		name, err := a.Store.SaveInbox(fh.Filename, f)
 		f.Close()
 		if err != nil {
-			errJSON(c, 500, err)
-			return
+			failed = append(failed, map[string]string{
+				"name": fh.Filename, "reason": "保存失败: " + err.Error(),
+			})
+			continue
 		}
 		saved = append(saved, name)
 	}
-	c.JSON(200, gin.H{"saved": saved})
+	c.JSON(200, gin.H{"saved": saved, "failed": failed})
 }
 
 func (a *API) GetMaterials(c *gin.Context) {
@@ -213,8 +245,17 @@ func (a *API) SetTopicStatus(c *gin.Context) {
 		return
 	}
 	slug := c.Param("slug")
+	a.Store.Lock()
+	defer a.Store.Unlock()
 	if err := a.Store.SetTopicStatus(slug, req.Status); err != nil {
-		errJSON(c, 500, err)
+		switch {
+		case errors.Is(err, store.ErrInvalidID):
+			errJSON(c, 400, err)
+		case errors.Is(err, store.ErrNotFound):
+			errJSON(c, 404, err)
+		default:
+			errJSON(c, 500, err)
+		}
 		return
 	}
 	c.JSON(200, gin.H{"ok": true, "slug": slug, "status": req.Status})
@@ -241,6 +282,10 @@ func isNewCard(card store.Card) bool {
 	return err == nil && st.Reps == 0
 }
 
+// isArchived 废弃卡：契约红线 3 规定废弃卡 topic 改为 _archived，
+// 与 paused 主题一样不进队列、不计统计。
+func isArchived(topic string) bool { return topic == "_archived" }
+
 func (a *API) ReviewQueue(c *gin.Context) {
 	cards, err := a.Store.ListCards()
 	if err != nil {
@@ -253,10 +298,11 @@ func (a *API) ReviewQueue(c *gin.Context) {
 	now := time.Now()
 	var due []store.Card
 	for _, card := range cards {
-		if paused[str(card.FM["topic"])] {
+		t := str(card.FM["topic"])
+		if isArchived(t) || paused[t] {
 			continue
 		}
-		if topic != "" && str(card.FM["topic"]) != topic {
+		if topic != "" && t != topic {
 			continue
 		}
 		switch mode {
@@ -291,7 +337,10 @@ func (a *API) ReviewQueue(c *gin.Context) {
 	out := make([]map[string]any, 0, len(interleaved))
 	for _, card := range interleaved {
 		m := card.FM
-		m["due"] = cardDue(card)
+		// 新卡没有到期时间：省略 due（前端 due?: string），不输出 0001-01-01 零值
+		if d := cardDue(card); !d.IsZero() {
+			m["due"] = d
+		}
 		if fm := card.CardFSRSMap(); fm != nil {
 			if st, err := fsrsx.FromMap(fm); err == nil {
 				m["state_name"] = fsrsx.StateName(st.State)
@@ -331,12 +380,35 @@ type gradeReq struct {
 	Rating int    `json:"rating" binding:"required"`
 }
 
+// gradeAndPersist 评分并写回卡片 fsrs 块，返回新状态与评分前快照。
+// 调用方须持有 Store 锁；评分档位非法时错误包裹 fsrsx.ErrInvalidRating。
+func (a *API) gradeAndPersist(id string, state *fsrsx.State, rating int, now time.Time) (next *fsrsx.State, fsrsBefore map[string]any, err error) {
+	fsrsBefore = state.ToMap()
+	next, err = fsrsx.Grade(state, rating, now)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := a.Store.WriteCardFSRS(id, next.ToMap()); err != nil {
+		return nil, nil, fmt.Errorf("卡片 fsrs 写回失败: %w", err)
+	}
+	return next, fsrsBefore, nil
+}
+
+func gradeErrCode(err error) int {
+	if errors.Is(err, fsrsx.ErrInvalidRating) {
+		return 400
+	}
+	return 500
+}
+
 func (a *API) ReviewGrade(c *gin.Context) {
 	var req gradeReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		errJSON(c, 400, err)
 		return
 	}
+	a.Store.Lock()
+	defer a.Store.Unlock()
 	card, err := a.Store.GetCard(req.ID)
 	if err != nil {
 		errJSON(c, 404, fmt.Errorf("卡片不存在: %s", req.ID))
@@ -354,20 +426,19 @@ func (a *API) ReviewGrade(c *gin.Context) {
 		state = fsrsx.New(now)
 	}
 	before := state.State
-	fsrsBefore := state.ToMap()
-	next, err := fsrsx.Grade(state, req.Rating, now)
+	next, fsrsBefore, err := a.gradeAndPersist(req.ID, state, req.Rating, now)
 	if err != nil {
-		errJSON(c, 400, err)
+		errJSON(c, gradeErrCode(err), err)
 		return
 	}
-	if err := a.Store.WriteCardFSRS(req.ID, next.ToMap()); err != nil {
-		errJSON(c, 500, err)
-		return
-	}
-	_ = a.Store.AppendJSONL("progress/review-log.jsonl", store.ReviewLogEntry{
+	// 卡片已写回：日志追加失败必须显式报错，否则改判/统计会基于缺行日志出错
+	if err := a.Store.AppendJSONL("progress/review-log.jsonl", store.ReviewLogEntry{
 		Card: req.ID, Rating: req.Rating, TS: now.UTC().Format(time.RFC3339),
 		StateBefore: before, StateAfter: next.State, FSRSBefore: fsrsBefore,
-	})
+	}); err != nil {
+		errJSON(c, 500, fmt.Errorf("卡片已更新但评分日志写入失败: %w", err))
+		return
+	}
 	c.JSON(200, gin.H{"id": req.ID, "fsrs": next.ToMap(), "state_name": fsrsx.StateName(next.State)})
 }
 
@@ -379,11 +450,13 @@ func (a *API) ReviewRegrade(c *gin.Context) {
 		errJSON(c, 400, err)
 		return
 	}
+	a.Store.Lock()
+	defer a.Store.Unlock()
 	if _, err := a.Store.GetCard(req.ID); err != nil {
 		errJSON(c, 404, fmt.Errorf("卡片不存在: %s", req.ID))
 		return
 	}
-	log, err := a.Store.ReadReviewLog()
+	log, _, err := a.Store.ReadReviewLog()
 	if err != nil {
 		errJSON(c, 500, err)
 		return
@@ -393,7 +466,7 @@ func (a *API) ReviewRegrade(c *gin.Context) {
 	last := -1
 	for i := len(log) - 1; i >= 0; i-- {
 		e := log[i]
-		if e.Card == req.ID && e.Rating >= 1 && e.Rating <= 4 && !voided[e.TS] {
+		if e.Card == req.ID && e.Rating >= 1 && e.Rating <= 4 && !voided[voidKey{e.Card, e.TS}] {
 			last = i
 			break
 		}
@@ -414,24 +487,26 @@ func (a *API) ReviewRegrade(c *gin.Context) {
 	}
 	now := time.Now()
 	before := state.State
-	fsrsBefore := state.ToMap()
-	next, err := fsrsx.Grade(state, req.Rating, now)
+	next, fsrsBefore, err := a.gradeAndPersist(req.ID, state, req.Rating, now)
 	if err != nil {
-		errJSON(c, 400, err)
-		return
-	}
-	if err := a.Store.WriteCardFSRS(req.ID, next.ToMap()); err != nil {
-		errJSON(c, 500, err)
+		errJSON(c, gradeErrCode(err), err)
 		return
 	}
 	nowTS := now.UTC().Format(time.RFC3339)
-	_ = a.Store.AppendJSONL("progress/review-log.jsonl", store.ReviewLogEntry{
+	// 两行任一失败都显式报错（卡片已写回，缺行会让日志自相矛盾）
+	if err := a.Store.AppendJSONL("progress/review-log.jsonl", store.ReviewLogEntry{
 		Card: req.ID, TS: nowTS, Void: true, VoidOf: prev.TS,
-	})
-	_ = a.Store.AppendJSONL("progress/review-log.jsonl", store.ReviewLogEntry{
+	}); err != nil {
+		errJSON(c, 500, fmt.Errorf("卡片已更新但作废日志写入失败: %w", err))
+		return
+	}
+	if err := a.Store.AppendJSONL("progress/review-log.jsonl", store.ReviewLogEntry{
 		Card: req.ID, Rating: req.Rating, TS: nowTS,
 		StateBefore: before, StateAfter: next.State, FSRSBefore: fsrsBefore,
-	})
+	}); err != nil {
+		errJSON(c, 500, fmt.Errorf("卡片已更新但评分日志写入失败: %w", err))
+		return
+	}
 	c.JSON(200, gin.H{"id": req.ID, "fsrs": next.ToMap(), "state_name": fsrsx.StateName(next.State)})
 }
 
@@ -446,6 +521,8 @@ func (a *API) ReviewRecall(c *gin.Context) {
 		errJSON(c, 400, err)
 		return
 	}
+	a.Store.Lock()
+	defer a.Store.Unlock()
 	if _, err := a.Store.GetCard(req.ID); err != nil {
 		errJSON(c, 404, fmt.Errorf("卡片不存在: %s", req.ID))
 		return
@@ -542,7 +619,9 @@ func (a *API) GetNote(c *gin.Context) {
 	for _, card := range cards {
 		if str(card.FM["note"]) == id {
 			m := card.FM
-			m["due"] = cardDue(card)
+			if d := cardDue(card); !d.IsZero() {
+				m["due"] = d
+			}
 			myCards = append(myCards, m)
 		}
 	}
@@ -558,6 +637,7 @@ type createCardReq struct {
 	Topic string `json:"topic"`
 	Note  string `json:"note"`
 	Type  string `json:"type"`
+	Hint  string `json:"hint"`
 }
 
 func (a *API) CreateCard(c *gin.Context) {
@@ -566,9 +646,11 @@ func (a *API) CreateCard(c *gin.Context) {
 		errJSON(c, 400, err)
 		return
 	}
+	a.Store.Lock()
+	defer a.Store.Unlock()
 	zero := fsrsx.New(time.Now()).ToMap()
 	id, err := a.Store.CreateCard(store.CreateCardParams{
-		Front: req.Front, Back: req.Back, Topic: req.Topic, Note: req.Note, Type: req.Type,
+		Front: req.Front, Back: req.Back, Topic: req.Topic, Note: req.Note, Type: req.Type, Hint: req.Hint,
 	}, zero)
 	if err != nil {
 		errJSON(c, 500, err)
@@ -606,12 +688,16 @@ func (a *API) GetSession(c *gin.Context) {
 
 // ---------- 掌握度与统计 ----------
 
-// voidedSet 收集被作废评分记录的 ts（作废行 void_of 指向被作废记录的 ts）。
-func voidedSet(log []store.ReviewLogEntry) map[string]bool {
-	m := map[string]bool{}
+// voidKey 以 卡片+ts 定位一条评分记录：作废行 void_of 指向被作废记录的 ts，
+// 同一秒内不同卡可能有相同 ts，必须连同 card 一起作键才不会误伤。
+type voidKey struct{ card, ts string }
+
+// voidedSet 收集被作废评分记录的 卡片+ts（作废行 void_of 指向被作废记录的 ts）。
+func voidedSet(log []store.ReviewLogEntry) map[voidKey]bool {
+	m := map[voidKey]bool{}
 	for _, e := range log {
 		if e.Void && e.VoidOf != "" {
-			m[e.VoidOf] = true
+			m[voidKey{e.Card, e.VoidOf}] = true
 		}
 	}
 	return m
@@ -624,7 +710,7 @@ func (a *API) GetMastery(c *gin.Context) {
 		return
 	}
 	cards, _ := a.Store.ListCards()
-	log, _ := a.Store.ReadReviewLog()
+	log, _, _ := a.Store.ReadReviewLog()
 	voided := voidedSet(log)
 	paused := a.Store.PausedTopics()
 	cardTopic := map[string]string{}
@@ -639,7 +725,7 @@ func (a *API) GetMastery(c *gin.Context) {
 	for _, card := range cards {
 		t := str(card.FM["topic"])
 		cardTopic[card.ID] = t
-		if paused[t] {
+		if isArchived(t) || paused[t] {
 			continue
 		}
 		m := ensure(t)
@@ -655,11 +741,11 @@ func (a *API) GetMastery(c *gin.Context) {
 		}
 	}
 	for _, e := range log {
-		if e.Void || voided[e.TS] {
+		if e.Void || voided[voidKey{e.Card, e.TS}] {
 			continue
 		}
 		t := cardTopic[e.Card]
-		if paused[t] {
+		if isArchived(t) || paused[t] {
 			continue
 		}
 		m := ensure(t)
@@ -677,7 +763,7 @@ func (a *API) GetStats(c *gin.Context) {
 		errJSON(c, 500, err)
 		return
 	}
-	log, err := a.Store.ReadReviewLog()
+	log, _, err := a.Store.ReadReviewLog()
 	if err != nil {
 		errJSON(c, 500, err)
 		return
@@ -689,13 +775,14 @@ func (a *API) GetStats(c *gin.Context) {
 	now := time.Now()
 	today := now.Format("2006-01-02")
 
-	due, newCards, reviewsToday, learnedToday := 0, 0, 0, 0
+	totalCards, due, newCards, reviewsToday, learnedToday := 0, 0, 0, 0, 0
 	dayCount := map[string]int{}
 	dayLearned := map[string]int{}
 	for _, card := range cards {
-		if paused[str(card.FM["topic"])] {
+		if t := str(card.FM["topic"]); isArchived(t) || paused[t] {
 			continue
 		}
+		totalCards++
 		if isNewCard(card) {
 			newCards++
 			continue
@@ -707,7 +794,7 @@ func (a *API) GetStats(c *gin.Context) {
 		}
 	}
 	for _, e := range log {
-		if e.Void || voided[e.TS] {
+		if e.Void || voided[voidKey{e.Card, e.TS}] {
 			continue
 		}
 		if t, err := time.Parse(time.RFC3339, e.TS); err == nil {
@@ -764,7 +851,7 @@ func (a *API) GetStats(c *gin.Context) {
 		}
 	}
 	c.JSON(200, gin.H{
-		"total_cards": len(cards), "due_now": due, "new_cards": newCards,
+		"total_cards": totalCards, "due_now": due, "new_cards": newCards,
 		"reviews_today": reviewsToday, "learned_today": learnedToday, "streak": streak,
 		"heatmap": heatmap, "recent_sessions": recent, "mastery": masterySummary,
 	})

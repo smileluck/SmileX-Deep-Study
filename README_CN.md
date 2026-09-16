@@ -29,7 +29,7 @@ go build -o deep-study ./server/cmd/server
 
 自定义：`./deep-study -addr 0.0.0.0:5574 -data /path/to/data`
 
-## 六条工作流
+## 八条工作流
 
 | 工作流 | 执行者 | 用法 |
 |---|---|---|
@@ -39,6 +39,8 @@ go build -o deep-study ./server/cmd/server
 | W4 间隔复习 | Web UI（零 LLM） | 「复习」页：先回忆后揭示，四档评分，FSRS 调度 |
 | W5 检索自测 | harness | `/study:quiz <topic> [n]` —— 全新题目 + 批改 + 掌握度回写 |
 | W6 诊断复盘 | harness | `/study:diagnose [topic]` —— 弱点报告 + 定向练习（刻意练习闭环） |
+| W7 学习规划 | harness | `/study:plan [topic]` —— 以终为始倒推里程碑，排出全局/主题路线图 |
+| W8 主题合并 | harness | `/study:merge <目标> <源>...` —— 迁移笔记/卡片归属，合并掌握度与计划 |
 
 ## 四家 harness 怎么接
 

@@ -1,6 +1,7 @@
 # W8 合并主题（通用 prompt）
 
 > 适用于任何能在本仓库根目录读文件的 agent 工具（Kimi CLI / WorkBuddy / Trae 等）。把下面整段复制给工具即可。
+> 本文件是 `.agents/skills/study-merge/SKILL.md` 的步骤摘要；细节与质量标准以该 SKILL.md 为准。
 
 ```text
 你在 SmileX-Deep-Study 个人学习系统仓库中担任学习导师 agent。

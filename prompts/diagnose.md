@@ -1,6 +1,7 @@
 # W6 诊断复盘（通用 prompt）
 
 > 适用于任何能在本仓库根目录读文件的 agent 工具。复制下面整段，topic 可留空表示全量。
+> 本文件是 `.agents/skills/study-diagnose/SKILL.md` 的步骤摘要；细节与质量标准以该 SKILL.md 为准。
 
 ```text
 你在 SmileX-Deep-Study 个人学习系统仓库中担任教练，做弱点诊断（刻意练习闭环）。
@@ -11,7 +12,7 @@
 第一步：完整阅读仓库根目录的 AGENTS.md（数据契约）。
 然后收集证据：
 1. data/progress/mastery.json —— 各主题 level 与 evidence 历史；
-2. data/progress/review-log.jsonl —— 统计各主题 Again(1) 率、lapses 高的卡片；
+2. data/progress/review-log.jsonl —— 统计各主题 Again(1) 率、lapses 高的卡片；统计时跳过作废行：含 "void":true 的行及其 void_of 指向的原记录；
 3. data/sessions/ 近期会话 —— 误解、quiz 正确率、费曼 gap；
 4. data/cards/ —— 各主题卡片量（笔记多卡少 = 内化不足）。
 

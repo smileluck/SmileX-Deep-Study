@@ -2,15 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BookOpen, CalendarCheck, Layers, Play, TrendingUp } from 'lucide-react'
 import { get, type Stats } from '../api'
+import { sessionTypeLabel } from '../labels'
 import Heatmap from '../components/Heatmap'
-
-const sessionTypeLabel: Record<string, string> = {
-  tutor: '导师',
-  feynman: '费曼',
-  quiz: '自测',
-  diagnose: '诊断',
-  import: '导入',
-}
 
 export default function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null)

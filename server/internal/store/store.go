@@ -2,21 +2,35 @@
 package store
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
+
+	"gopkg.in/yaml.v3"
+
+	"smilex-deep-study/server/internal/fsrsx"
 )
 
 type Store struct {
 	DataDir string
+	mu      sync.Mutex
 }
 
 func New(dataDir string) *Store { return &Store{DataDir: dataDir} }
+
+// Lock/Unlock 串行化跨多次文件操作的读-改-写流程（评分、改判、建卡、上传、
+// recall 追加等）。gin 每个请求一个 goroutine，调用方在写路径入口持锁。
+func (s *Store) Lock()   { s.mu.Lock() }
+func (s *Store) Unlock() { s.mu.Unlock() }
 
 var subdirs = []string{"inbox", "library", "topics", "notes", "cards", "sessions", "progress"}
 
@@ -54,12 +68,40 @@ func (s *Store) readDoc(path string) (*Doc, error) {
 }
 
 // writeAtomic 先写临时文件再替换，避免 agent 并发读到半截文件。
+// 临时文件用同目录随机名，并发写同一路径互不污染。
 func writeAtomic(path string, data []byte) error {
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+"-*.tmp")
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, path)
+	tmpName := tmp.Name()
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpName)
+		return err
+	}
+	return os.Rename(tmpName, path)
+}
+
+// ErrInvalidID 表示 id/slug 为空、为 ".." 或含路径分隔符；
+// ErrNotFound 表示目标资源不存在。调用方用 errors.Is 区分 400/404。
+var (
+	ErrInvalidID = errors.New("非法 id")
+	ErrNotFound  = errors.New("目标不存在")
+)
+
+// ValidID 校验 slug/id：拒绝空、".." 与路径分隔符（含 Windows 反斜杠），防目录逃逸。
+func ValidID(id string) bool {
+	if id == "" || id == ".." {
+		return false
+	}
+	return !strings.ContainsRune(id, '/') &&
+		!strings.ContainsRune(id, '\\') &&
+		!strings.ContainsRune(id, os.PathSeparator)
 }
 
 // IDsIn 返回目录下全部 markdown 文件名（不含扩展名），按名排序。
@@ -116,8 +158,8 @@ func (s *Store) ListCards() ([]Card, error) {
 }
 
 func (s *Store) GetCard(id string) (*Card, error) {
-	if id == "" || strings.ContainsRune(id, '/') || strings.ContainsRune(id, filepath.Separator) {
-		return nil, fmt.Errorf("非法卡片 id")
+	if !ValidID(id) {
+		return nil, fmt.Errorf("非法卡片 id %q: %w", id, ErrInvalidID)
 	}
 	path := filepath.Join(s.CardsDir(), id+".md")
 	doc, err := s.readDoc(path)
@@ -142,9 +184,7 @@ func (s *Store) WriteCardFSRS(id string, fsrsMap map[string]any) error {
 	if err != nil {
 		return err
 	}
-	keys := []string{"due", "stability", "difficulty", "elapsed_days",
-		"scheduled_days", "reps", "lapses", "state", "last_review"}
-	doc.UpdateMapping("fsrs", MapNode(keys, fsrsMap))
+	doc.UpdateMapping("fsrs", MapNode(fsrsx.Keys(), fsrsMap))
 	b, err := doc.Bytes()
 	if err != nil {
 		return err
@@ -159,6 +199,7 @@ type CreateCardParams struct {
 	Topic string
 	Note  string
 	Type  string // basic | cloze
+	Hint  string // 可选：契约要求必填，UI 暂未提供时留空
 }
 
 func (s *Store) CreateCard(p CreateCardParams, zeroFSRS map[string]any) (string, error) {
@@ -168,50 +209,57 @@ func (s *Store) CreateCard(p CreateCardParams, zeroFSRS map[string]any) (string,
 	if p.Type == "" {
 		p.Type = "basic"
 	}
-	id := fmt.Sprintf("manual-%s", time.Now().Format("20060102-150405"))
-	var b strings.Builder
-	b.WriteString("---\n")
-	fmt.Fprintf(&b, "id: %s\n", id)
-	fmt.Fprintf(&b, "note: %s\n", p.Note)
-	fmt.Fprintf(&b, "topic: %s\n", p.Topic)
-	fmt.Fprintf(&b, "type: %s\n", p.Type)
-	fmt.Fprintf(&b, "front: |-\n%s", indentBlock(p.Front))
-	fmt.Fprintf(&b, "back: |-\n%s", indentBlock(p.Back))
-	fmt.Fprintf(&b, "created: %s\n", time.Now().Format("2006-01-02"))
-	b.WriteString("fsrs:\n")
-	for _, k := range []string{"due", "stability", "difficulty", "elapsed_days",
-		"scheduled_days", "reps", "lapses", "state", "last_review"} {
-		fmt.Fprintf(&b, "  %s: %v\n", k, yamlLine(zeroFSRS[k]))
+	now := time.Now()
+	// 随机后缀防同秒建卡互相覆盖
+	id := fmt.Sprintf("manual-%s-%s", now.Format("20060102-150405"), randHex(2))
+
+	// 标量统一走 yaml.Node 序列化：yaml.Marshal 按需加引号/转义，
+	// note/topic 含特殊字符不会破坏或注入 frontmatter；due 强制双引号。
+	strNode := func(v string, style yaml.Style) *yaml.Node {
+		return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: v, Style: style}
 	}
-	b.WriteString("---\n")
+	fm := &yaml.Node{Kind: yaml.MappingNode}
+	add := func(k string, v *yaml.Node) {
+		fm.Content = append(fm.Content, strNode(k, 0), v)
+	}
+	add("id", strNode(id, 0))
+	add("note", strNode(p.Note, 0))
+	add("topic", strNode(p.Topic, 0))
+	add("type", strNode(p.Type, 0))
+	add("front", strNode(p.Front, yaml.LiteralStyle))
+	add("back", strNode(p.Back, yaml.LiteralStyle))
+	if p.Hint != "" {
+		add("hint", strNode(p.Hint, 0))
+	}
+	add("created", strNode(now.Format("2006-01-02"), 0))
+	fsrsNode := &yaml.Node{Kind: yaml.MappingNode}
+	for _, k := range fsrsx.Keys() {
+		v := ScalarNode(zeroFSRS[k])
+		if k == "due" {
+			v.Style = yaml.DoubleQuotedStyle
+		}
+		fsrsNode.Content = append(fsrsNode.Content, strNode(k, 0), v)
+	}
+	add("fsrs", fsrsNode)
+	out, err := yaml.Marshal(fm)
+	if err != nil {
+		return "", err
+	}
+	content := "---\n" + string(out) + "---\n"
 	path := filepath.Join(s.CardsDir(), id+".md")
-	if err := writeAtomic(path, []byte(b.String())); err != nil {
+	if err := writeAtomic(path, []byte(content)); err != nil {
 		return "", err
 	}
 	return id, nil
 }
 
-func indentBlock(s string) string {
-	lines := strings.Split(strings.TrimRight(s, "\n"), "\n")
-	var b strings.Builder
-	for _, l := range lines {
-		if l == "" {
-			b.WriteString("\n")
-		} else {
-			b.WriteString("  " + l + "\n")
-		}
+// randHex 返回 n 字节的十六进制串（2n 个字符）。
+func randHex(n int) string {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Sprintf("%x", time.Now().UnixNano())
 	}
-	return b.String()
-}
-
-func yamlLine(v any) string {
-	if v == nil {
-		return "null"
-	}
-	if s, ok := v.(string); ok {
-		return s
-	}
-	return fmt.Sprintf("%v", v)
+	return hex.EncodeToString(b)
 }
 
 // ---------- 笔记 ----------
@@ -245,8 +293,8 @@ func (s *Store) ListNotes() ([]Note, error) {
 }
 
 func (s *Store) GetNote(id string) (*Note, error) {
-	if id == "" || strings.ContainsRune(id, '/') {
-		return nil, fmt.Errorf("非法笔记 id")
+	if !ValidID(id) {
+		return nil, fmt.Errorf("非法笔记 id %q: %w", id, ErrInvalidID)
 	}
 	path := filepath.Join(s.NotesDir(), id+".md")
 	doc, err := s.readDoc(path)
@@ -298,8 +346,8 @@ func (s *Store) ListSessions() ([]Session, error) {
 }
 
 func (s *Store) GetSession(id string) (*Session, error) {
-	if id == "" || strings.ContainsRune(id, '/') {
-		return nil, fmt.Errorf("非法会话 id")
+	if !ValidID(id) {
+		return nil, fmt.Errorf("非法会话 id %q: %w", id, ErrInvalidID)
 	}
 	path := filepath.Join(s.SessionsDir(), id+".md")
 	doc, err := s.readDoc(path)
@@ -312,14 +360,6 @@ func (s *Store) GetSession(id string) (*Session, error) {
 }
 
 // ---------- 主题 ----------
-
-type TopicStat struct {
-	Slug  string `json:"slug"`
-	Name  string `json:"name"`
-	Goal  string `json:"goal"`
-	Notes int    `json:"notes"`
-	Cards int    `json:"cards"`
-}
 
 func (s *Store) TopicsDir() string { return filepath.Join(s.DataDir, "topics") }
 
@@ -402,8 +442,8 @@ func (s *Store) TopicPlans() ([]Plan, error) {
 }
 
 func (s *Store) GetTopicPlan(slug string) (*Plan, error) {
-	if slug == "" || strings.ContainsRune(slug, '/') {
-		return nil, fmt.Errorf("非法主题 slug")
+	if !ValidID(slug) {
+		return nil, fmt.Errorf("非法主题 slug %q: %w", slug, ErrInvalidID)
 	}
 	path := filepath.Join(s.TopicsDir(), slug, "plan.md")
 	doc, err := s.readDoc(path)
@@ -414,14 +454,18 @@ func (s *Store) GetTopicPlan(slug string) (*Plan, error) {
 }
 
 // SetTopicStatus 写 manifest.json 的 status 字段（active/paused，由调用方校验取值）。
+// 主题不存在时返回包裹 ErrNotFound 的错误。
 func (s *Store) SetTopicStatus(slug, status string) error {
-	if slug == "" || strings.ContainsRune(slug, '/') {
-		return fmt.Errorf("非法主题 slug")
+	if !ValidID(slug) {
+		return fmt.Errorf("非法主题 slug %q: %w", slug, ErrInvalidID)
 	}
 	path := filepath.Join(s.TopicsDir(), slug, "manifest.json")
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("主题 %s 的 manifest 不存在或读取失败: %w", slug, err)
+		if os.IsNotExist(err) {
+			return fmt.Errorf("主题 %s 的 manifest 不存在: %w", slug, ErrNotFound)
+		}
+		return fmt.Errorf("主题 %s 的 manifest 读取失败: %w", slug, err)
 	}
 	var m map[string]any
 	if err := json.Unmarshal(raw, &m); err != nil {
@@ -479,16 +523,6 @@ func (s *Store) MaterialsIndex() ([]MaterialMeta, error) {
 		return nil, fmt.Errorf("materials.json 损坏: %w", err)
 	}
 	return list, nil
-}
-
-func (s *Store) AppendMaterial(m MaterialMeta) error {
-	list, err := s.MaterialsIndex()
-	if err != nil {
-		return err
-	}
-	list = append(list, m)
-	b, _ := json.MarshalIndent(list, "", "  ")
-	return writeAtomic(s.MaterialsPath(), append(b, '\n'))
 }
 
 func (s *Store) InboxList() ([]FileInfo, error) {
@@ -577,15 +611,17 @@ type ReviewLogEntry struct {
 	VoidOf string `json:"void_of,omitempty"`
 }
 
-func (s *Store) ReadReviewLog() ([]ReviewLogEntry, error) {
+// ReadReviewLog 读取复习日志；返回无法解析的行数（跳过但计数，供校验器告警）。
+func (s *Store) ReadReviewLog() ([]ReviewLogEntry, int, error) {
 	raw, err := os.ReadFile(filepath.Join(s.DataDir, "progress", "review-log.jsonl"))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return nil, 0, nil
 		}
-		return nil, err
+		return nil, 0, err
 	}
 	var out []ReviewLogEntry
+	bad := 0
 	for _, line := range strings.Split(string(raw), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -594,9 +630,11 @@ func (s *Store) ReadReviewLog() ([]ReviewLogEntry, error) {
 		var e ReviewLogEntry
 		if json.Unmarshal([]byte(line), &e) == nil {
 			out = append(out, e)
+		} else {
+			bad++
 		}
 	}
-	return out, nil
+	return out, bad, nil
 }
 
 func (s *Store) ReadMastery() (map[string]any, error) {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   FileQuestion,
   GraduationCap,
@@ -29,12 +29,15 @@ export default function Workflows() {
   const [flows, setFlows] = useState<Workflow[]>([])
   const [expanded, setExpanded] = useState<string | null>(null)
   const [promptText, setPromptText] = useState('')
+  // 请求序号：快速展开/收起不同工作流时递增，过期的 prompt 响应直接丢弃
+  const promptSeq = useRef(0)
 
   useEffect(() => {
     get<Workflow[]>('/api/workflows').then(setFlows).catch(() => setFlows([]))
   }, [])
 
   const togglePrompt = async (f: Workflow) => {
+    const seq = ++promptSeq.current
     if (expanded === f.id) {
       setExpanded(null)
       return
@@ -44,7 +47,9 @@ export default function Workflows() {
     if (f.prompt_file) {
       const name = f.prompt_file.split('/').pop()!.replace(/\.md$/, '')
       const res = await fetch(`/api/prompts/${name}`)
-      if (res.ok) setPromptText(await res.text())
+      const text = res.ok ? await res.text() : ''
+      if (seq !== promptSeq.current) return
+      if (res.ok) setPromptText(text)
     }
   }
 

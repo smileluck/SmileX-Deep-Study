@@ -20,7 +20,7 @@ data/
     ├── mastery.json     # 掌握度 0-5 + 证据链
     ├── review-log.jsonl # 复习日志（只追加）
     └── recall-log.jsonl # 自由回忆答案（待你批改）
-prompts/            # 通用 prompt 模板（内容与 skills 一致，供任何工具使用）
+prompts/            # 通用 prompt 模板（技能步骤摘要，细节以 .agents/skills/ 下 SKILL.md 为准，供任何工具使用）
 roles/              # 角色定义（身份+纪律）：导师/测验官/初学者/教练/导入员/规划师，由技能加载
 .agents/skills/     # 通用 Agent 技能（SKILL.md 标准格式，ZCode 等原生发现）
 .agents/commands/   # 通用斜杠命令（/study:*，Claude Code 式 command 格式）
@@ -207,7 +207,7 @@ updated: 2026-09-15
 2. 你扮演聪明的初学者追问："为什么？""能举个例子吗？""如果 X 变了会怎样？"
 3. 指出讲不清楚/讲错的地方 → 追加到笔记 `## Gaps`（带日期）。
 4. 为每个 gap 建议一张卡（学习者同意才建）。
-5. 写会话日志；gap ≤1 个且讲解流畅时 mastery 可 +1（kind: feynman）。
+5. 写会话日志；gap ≤1 个且讲解流畅时 mastery 可 +1，gap ≥3 个且讲解混乱时可 −1（kind: feynman）。
 
 ### W4 复习 —— 纯 Web UI，**你不参与**
 

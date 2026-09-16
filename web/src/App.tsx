@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { NavLink, Route, Routes } from 'react-router-dom'
 import {
   BookOpen,
@@ -13,7 +12,7 @@ import {
   ScrollText,
   Target,
 } from 'lucide-react'
-import { get, type Stats } from './api'
+import { useStats } from './useStats'
 import Dashboard from './pages/Dashboard'
 import Library from './pages/Library'
 import Notes from './pages/Notes'
@@ -36,20 +35,8 @@ const nav = [
 ]
 
 function DueBadge({ field }: { field: 'due_now' | 'new_cards' }) {
-  const [due, setDue] = useState(0)
-  useEffect(() => {
-    let alive = true
-    const load = () =>
-      get<Stats>('/api/stats')
-        .then((s) => alive && setDue(s[field]))
-        .catch(() => {})
-    load()
-    const t = setInterval(load, 30_000)
-    return () => {
-      alive = false
-      clearInterval(t)
-    }
-  }, [field])
+  const stats = useStats()
+  const due = stats?.[field] ?? 0
   if (!due) return null
   return (
     <span className="badge badge-error badge-sm ml-auto border-none text-error-content">{due}</span>

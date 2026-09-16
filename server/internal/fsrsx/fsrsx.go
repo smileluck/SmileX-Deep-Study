@@ -3,6 +3,7 @@ package fsrsx
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -106,11 +107,14 @@ func fromCard(c gofsrs.Card) *State {
 	return s
 }
 
+// ErrInvalidRating 评分档位非法（合法 1-4）；调用方用 errors.Is 映射 400。
+var ErrInvalidRating = errors.New("rating 必须是 1-4")
+
 // Grade 执行一次评分（rating: 1=Again 2=Hard 3=Good 4=Easy），
 // 返回新状态。这是全系统唯一写调度状态的入口。
 func Grade(st *State, rating int, now time.Time) (*State, error) {
 	if rating < 1 || rating > 4 {
-		return nil, fmt.Errorf("rating 必须是 1-4，收到 %d", rating)
+		return nil, fmt.Errorf("%w，收到 %d", ErrInvalidRating, rating)
 	}
 	p := gofsrs.DefaultParam()
 	p.RequestRetention = RequestRetention

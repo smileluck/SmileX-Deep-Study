@@ -2,14 +2,18 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"io/fs"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -75,9 +79,20 @@ func main() {
 		c.Data(http.StatusOK, "text/html; charset=utf-8", index)
 	})
 
-	log.Printf("SmileX-Deep-Study 已启动: http://%s  (数据目录: %s)", *addr, data)
-	if err := r.Run(*addr); err != nil {
-		log.Fatal(err)
+	srv := &http.Server{Addr: *addr, Handler: r}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	go func() {
+		log.Printf("SmileX-Deep-Study 已启动: http://%s  (数据目录: %s)", *addr, data)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
+	<-ctx.Done()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("优雅退出失败: %v", err)
 	}
 }
 

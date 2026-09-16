@@ -26,7 +26,7 @@ SmileX-Deep-Study/
 │   ├── plans/master.md                # 全局学习计划（W7 产出，agent 读写）
 │   ├── notes/<id>.md                  # 原子笔记
 │   ├── cards/<id>.md                  # 卡片（一卡一文件，内嵌 FSRS 状态）
-│   ├── sessions/<id>.md               # 会话日志（tutor/feynman/quiz/diagnose/import/plan）
+│   ├── sessions/<id>.md               # 会话日志（tutor/feynman/quiz/diagnose/import/plan/merge）
 │   └── progress/
 │       ├── mastery.json               # 掌握度（0-5 + 证据链）
 │       ├── review-log.jsonl           # 复习日志（追加式）
@@ -88,7 +88,7 @@ fsrs:                          # ★ 只有 Go 服务端可写
 ```markdown
 ---
 id: 20260913-tutor-fsrs
-type: tutor          # tutor | feynman | quiz | diagnose | import | plan
+type: tutor          # tutor | feynman | quiz | diagnose | import | plan | merge
 topic: spaced-repetition
 date: 2026-09-13
 tool: zcode          # 产生本次会话的 harness
@@ -115,7 +115,7 @@ notes_updated: [fsrs-memory-model]
 }
 ```
 
-level 0-5（0=未接触 … 5=能讲授）。每次变更必须附 evidence（kind: quiz | review | feynman | diagnose | import）。
+level 0-5（0=未接触 … 5=能讲授）。每次变更必须附 evidence（kind: quiz | review | feynman | diagnose | import | merge）。
 
 ### 日志（追加式，永不改写）
 

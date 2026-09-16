@@ -117,7 +117,7 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
     [card, busy, revealed, graded],
   )
 
-  // 第二步：推进到下一张（或清空队列），并重置本卡状态
+  // 第二步：推进到下一张（或清空队列），并重置本卡状态（含上一张的评分错误提示）
   const next = useCallback(() => {
     setRevealed(false)
     setRecallMode(false)
@@ -125,6 +125,7 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
     setRecallSaved(false)
     setGraded(null)
     setHintShown(false)
+    setErr('')
     if (idx + 1 >= total) {
       setQueue([])
     } else {

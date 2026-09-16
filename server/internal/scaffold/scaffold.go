@@ -3,8 +3,8 @@
 // 能把这些契约文件铺到数据目录上一级，供 WorkBuddy 等 agent harness 使用。
 //
 // assets/ 由 scripts/sync-adapters.sh 从仓库根生成（make build/cross 自动调用），
-// 勿手改。因 go:embed 不接受点开头路径，assets 内用 agents/ codebuddy/ 目录名，
-// 写盘时还原为 .agents/ .codebuddy/。
+// 勿手改。因 go:embed 不接受点开头路径，assets 内用 agents/ codebuddy/ trae/ 目录名，
+// 写盘时还原为 .agents/ .codebuddy/ .trae/。
 package scaffold
 
 import (
@@ -18,7 +18,7 @@ import (
 //go:embed all:assets
 var assetsFS embed.FS
 
-var dotDirs = map[string]string{"agents": ".agents", "codebuddy": ".codebuddy"}
+var dotDirs = map[string]string{"agents": ".agents", "codebuddy": ".codebuddy", "trae": ".trae"}
 
 // Ensure 把内嵌脚手架写入 workspace，只创建缺失文件，绝不覆盖已存在文件。
 // 返回新建与跳过的相对路径列表。

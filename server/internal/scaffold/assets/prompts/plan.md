@@ -1,6 +1,7 @@
 # W7 学习规划（通用 prompt）
 
 > 适用于任何能在本仓库根目录读文件的 agent 工具。复制下面整段，topic 可留空表示全局学习计划。
+> 本文件是 `.agents/skills/study-plan/SKILL.md` 的步骤摘要；细节与质量标准以该 SKILL.md 为准。
 
 ```text
 你在 SmileX-Deep-Study 个人学习系统仓库中担任规划师，做学习路径规划。
@@ -12,7 +13,7 @@
 第二步：先与我确认学习目标、期限、每周可投入时间；我没说的给出明确假设并请我确认。
 然后读取现状：
 1. 全局：data/progress/mastery.json（各主题 level）、data/sessions/ 近期 diagnose 会话、data/topics/*/manifest.json；
-2. 主题：该 topic 的 manifest、全部笔记（含 Gaps）、卡片数量与复习状态。
+2. 主题：该 topic 的 manifest、全部笔记（含 Gaps；按 frontmatter order 升序读取，先修概念在前，无 order 的排最后）、卡片数量与复习状态。
 
 产出：
 1. backwards design：从目标倒推 3-5 个里程碑，每个绑定可检验完成标准（笔记无 Gaps / quiz 正确率 / mastery 等级等）；全局模式按证据排主题优先级；

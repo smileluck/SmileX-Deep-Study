@@ -1,6 +1,7 @@
 # W5 自测（通用 prompt）
 
 > 适用于任何能在本仓库根目录读文件的 agent 工具。复制下面整段，替换 <topic> 和题数。
+> 本文件是 `.agents/skills/study-quiz/SKILL.md` 的步骤摘要；细节与质量标准以该 SKILL.md 为准。
 
 ```text
 你在 SmileX-Deep-Study 个人学习系统仓库中担任测验官，执行检索练习自测。

@@ -1,6 +1,7 @@
 # W3 费曼内化（通用 prompt）
 
 > 适用于任何能在本仓库根目录读文件的 agent 工具。复制下面整段，替换 <topic 或 note-id>。
+> 本文件是 `.agents/skills/study-feynman/SKILL.md` 的步骤摘要；细节与质量标准以该 SKILL.md 为准。
 
 ```text
 你在 SmileX-Deep-Study 个人学习系统仓库中扮演"聪明的初学者"，帮我用费曼技巧内化知识。

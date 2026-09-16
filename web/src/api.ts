@@ -41,9 +41,15 @@ export interface Workflow {
   ui_hint: string
 }
 
+export interface MaterialFile {
+  name: string
+  size: number
+  mtime: string
+}
+
 export interface MaterialsResp {
-  inbox: { Name?: string; name?: string; size?: number; Size?: number; mtime?: string; Mtime?: string }[]
-  library: { Name?: string; name?: string; size?: number; Size?: number; mtime?: string; Mtime?: string }[]
+  inbox: MaterialFile[]
+  library: MaterialFile[]
   index: { id: number; original_name: string; stored_name: string; topic: string; status: string; imported_at: string }[]
 }
 
@@ -65,12 +71,22 @@ export interface NoteListItem {
   links: string[] | null
   created: string
   cards: number
+  gaps: number
   order?: number
+}
+
+export interface NoteFM {
+  title?: string
+  topic?: string
+  tags?: string[]
+  links?: string[]
+  created?: string
+  source?: string
 }
 
 export interface NoteDetail {
   id: string
-  fm: Record<string, unknown>
+  fm: NoteFM
   body: string
   backlinks: string[]
   cards: Record<string, unknown>[]
@@ -85,9 +101,18 @@ export interface SessionListItem {
   summary: string
 }
 
+export interface SessionFM {
+  type?: string
+  topic?: string
+  date?: string
+  tool?: string
+  summary?: string
+  misconceptions?: string[]
+}
+
 export interface SessionDetail {
   id: string
-  fm: Record<string, unknown>
+  fm: SessionFM
   body: string
 }
 
@@ -95,7 +120,6 @@ export interface QueueCard {
   id: string
   front: string
   back: string
-  body: string
   hint?: string
   topic: string
   note: string | null
@@ -104,15 +128,23 @@ export interface QueueCard {
   due?: string
 }
 
+export interface PlanFM {
+  title?: string
+  goal?: string
+  horizon?: string
+  status?: string
+  updated?: string
+}
+
 export interface Plan {
   slug: string
   topic_name: string
-  fm: Record<string, unknown>
+  fm: PlanFM
   body: string
 }
 
 export interface PlansResp {
-  master: { fm: Record<string, unknown>; body: string } | null
+  master: { fm: PlanFM; body: string } | null
   topics: Plan[]
 }
 
@@ -131,14 +163,6 @@ export function fmtSize(n?: number): string {
   if (n < 1024) return `${n} B`
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
   return `${(n / 1024 / 1024).toFixed(1)} MB`
-}
-
-export function fname(f: { Name?: string; name?: string }): string {
-  return f.Name ?? f.name ?? ''
-}
-
-export function fsize(f: { Size?: number; size?: number }): number | undefined {
-  return f.Size ?? f.size
 }
 
 export function fmtDate(d?: string): string {

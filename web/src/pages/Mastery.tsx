@@ -1,32 +1,30 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { get, type MasteryResp } from '../api'
+import { evidenceKindLabel } from '../labels'
 
 const levelDesc = ['未接触', '有印象', '能复述要点', '能应用', '能关联迁移', '能讲授他人']
-const kindLabel: Record<string, string> = {
-  quiz: '自测',
-  review: '复习',
-  feynman: '费曼',
-  diagnose: '诊断',
-  import: '导入',
-}
 
 export default function Mastery() {
   const [data, setData] = useState<MasteryResp | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
+  const [err, setErr] = useState('')
 
   useEffect(() => {
-    get<MasteryResp>('/api/mastery').then(setData).catch(() => setData({ mastery: {}, per_topic: {} }))
+    get<MasteryResp>('/api/mastery')
+      .then(setData)
+      .catch((e) => setErr(String(e.message ?? e)))
   }, [])
 
-  if (!data) return <div className="p-8 text-sm opacity-50">加载中…</div>
-
-  const topics = Object.keys(data.mastery)
-  const slugs = [...new Set([...topics, ...Object.keys(data.per_topic)])]
+  const topics = Object.keys(data?.mastery ?? {})
+  const slugs = [...new Set([...topics, ...Object.keys(data?.per_topic ?? {})])]
   const current = selected ?? slugs[0]
-  const m = data.mastery[current]
-  const stat = data.per_topic[current] ?? { cards: 0, due: 0, new: 0, reviews: 0, again: 0 }
+  const m = data?.mastery[current]
+  const stat = data?.per_topic[current] ?? { cards: 0, due: 0, new: 0, reviews: 0, again: 0 }
   const againRate = stat.reviews > 0 ? Math.round((stat.again / stat.reviews) * 100) : 0
-  const evidence = [...(m?.evidence ?? [])].reverse()
+  const evidence = useMemo(() => [...(m?.evidence ?? [])].reverse(), [m])
+
+  if (err) return <div className="p-8 text-error">{err}</div>
+  if (!data) return <div className="p-8 text-sm opacity-50">加载中…</div>
 
   return (
     <div className="mx-auto max-w-4xl p-8">
@@ -101,10 +99,10 @@ export default function Mastery() {
                   <p className="mt-3 text-sm opacity-55">暂无证据记录。</p>
                 ) : (
                   <ul className="mt-3 flex flex-col">
-                    {evidence.map((e, i) => (
-                      <li key={i} className="flex items-center gap-3 border-b border-base-200 py-2 text-sm last:border-none">
+                    {evidence.map((e) => (
+                      <li key={`${e.date}-${e.kind}-${e.detail}`} className="flex items-center gap-3 border-b border-base-200 py-2 text-sm last:border-none">
                         <span className="w-24 shrink-0 font-mono text-xs opacity-50">{e.date}</span>
-                        <span className="badge badge-ghost badge-sm shrink-0">{kindLabel[e.kind] ?? e.kind}</span>
+                        <span className="badge badge-ghost badge-sm shrink-0">{evidenceKindLabel[e.kind] ?? e.kind}</span>
                         <span className="min-w-0 flex-1 truncate opacity-75">{e.detail}</span>
                         <span
                           className={`w-8 shrink-0 text-right font-bold tabular-nums ${

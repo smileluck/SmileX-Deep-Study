@@ -11,7 +11,7 @@ description: 刻意练习诊断：综合掌握度、复习日志（Again率/laps
 
 1. **收集证据**（有 topic 参数则聚焦，没有则全量）：
    - `data/progress/mastery.json`：各主题 level 与 evidence 历史
-   - `data/progress/review-log.jsonl`：统计各 topic 的 Again(1) 率、lapses 高的卡片
+   - `data/progress/review-log.jsonl`：统计各 topic 的 Again(1) 率、lapses 高的卡片；统计时跳过作废行——含 `"void":true` 的行及其 `void_of` 指向的原记录（AGENTS.md 红线 2）
    - `data/sessions/` 近期会话：misconceptions、quiz 正确率、费曼 gap
    - `data/cards/`：各 topic 卡片量（笔记多但卡少 = 内化不足）
 2. **产出弱点报告**（正文输出给用户，每条附数据证据——角色铁律 1）：

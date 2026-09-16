@@ -85,22 +85,6 @@ func normalizeTimes(m map[string]any) {
 	}
 }
 
-// Get 返回 frontmatter 顶层键的值。
-func (d *Doc) Get(key string) any {
-	if d.FMNode == nil || d.FMNode.Kind != yaml.MappingNode {
-		return nil
-	}
-	for i := 0; i+1 < len(d.FMNode.Content); i += 2 {
-		if d.FMNode.Content[i].Value == key {
-			var v any
-			if err := d.FMNode.Content[i+1].Decode(&v); err == nil {
-				return v
-			}
-		}
-	}
-	return nil
-}
-
 // UpdateMapping 定向替换/插入一个顶层键的值（保序，其余键不动）。
 func (d *Doc) UpdateMapping(key string, valueNode *yaml.Node) {
 	if d.FMNode.Kind != yaml.MappingNode {

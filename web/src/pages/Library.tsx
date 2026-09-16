@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { FileUp, FolderTree, Inbox, Pause, Play, Terminal } from 'lucide-react'
-import { fname, fmtDate, fmtSize, fsize, get, post, type MaterialsResp, type Topic } from '../api'
+import { fmtDate, fmtSize, get, post, type MaterialsResp, type Topic } from '../api'
 import CopyButton from '../components/CopyButton'
 
 export default function Library() {
@@ -8,26 +8,32 @@ export default function Library() {
   const [topics, setTopics] = useState<Topic[]>([])
   const [dragging, setDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [msg, setMsg] = useState('')
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+  const [err, setErr] = useState('')
   const [importTopic, setImportTopic] = useState<Record<string, string>>({})
   const [statusBusy, setStatusBusy] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(() => {
-    get<MaterialsResp>('/api/materials').then(setData).catch(() => setData({ inbox: [], library: [], index: [] }))
-    get<Topic[]>('/api/topics').then(setTopics).catch(() => setTopics([]))
+    setErr('')
+    get<MaterialsResp>('/api/materials')
+      .then(setData)
+      .catch((e) => setErr(`材料列表加载失败：${e.message ?? e}`))
+    get<Topic[]>('/api/topics')
+      .then(setTopics)
+      .catch((e) => setErr(`主题列表加载失败：${e.message ?? e}`))
   }, [])
   useEffect(load, [load])
 
   const toggleTopicStatus = async (t: Topic) => {
     const next = t.status === 'paused' ? 'active' : 'paused'
     setStatusBusy(t.slug)
-    setMsg('')
+    setMsg(null)
     try {
       await post(`/api/topics/${t.slug}/status`, { status: next })
       load()
     } catch (e) {
-      setMsg(`操作失败：${(e as Error).message}`)
+      setMsg({ kind: 'err', text: `操作失败：${(e as Error).message}` })
     } finally {
       setStatusBusy(null)
     }
@@ -37,15 +43,16 @@ export default function Library() {
     const fd = new FormData()
     for (const f of files) fd.append('files', f)
     setUploading(true)
-    setMsg('')
+    setMsg(null)
     try {
       const res = await fetch('/api/materials/upload', { method: 'POST', body: fd })
-      const j = await res.json()
-      if (!res.ok) throw new Error(j.error ?? res.statusText)
-      setMsg(`已上传 ${j.saved.length} 个文件到 inbox，去 harness 执行导入命令即可`)
+      // 错误响应不一定是 JSON（如网关 502），解析失败时给通用提示
+      const j = await res.json().catch(() => null) as { saved?: unknown[]; error?: string } | null
+      if (!res.ok) throw new Error(j?.error ?? `上传失败（HTTP ${res.status}）`)
+      setMsg({ kind: 'ok', text: `已上传 ${j?.saved?.length ?? 0} 个文件到 inbox，去 harness 执行导入命令即可` })
       load()
     } catch (e) {
-      setMsg(`上传失败：${(e as Error).message}`)
+      setMsg({ kind: 'err', text: `上传失败：${(e as Error).message}` })
     } finally {
       setUploading(false)
     }
@@ -78,7 +85,11 @@ export default function Library() {
           type="file"
           multiple
           className="hidden"
-          onChange={(e) => e.target.files && upload(e.target.files)}
+          onChange={(e) => {
+            if (e.target.files?.length) upload(e.target.files)
+            // 清空 value，否则再次选择同一文件不会触发 onChange
+            e.target.value = ''
+          }}
         />
         {uploading ? (
           <div className="loading loading-dots loading-md text-primary" />
@@ -90,7 +101,10 @@ export default function Library() {
           </>
         )}
       </div>
-      {msg && <div className="mt-3 text-sm text-primary">{msg}</div>}
+      {msg && (
+        <div className={`mt-3 text-sm ${msg.kind === 'err' ? 'text-error' : 'text-primary'}`}>{msg.text}</div>
+      )}
+      {err && <div className="mt-3 text-sm text-error">{err}</div>}
 
       {data && (data.inbox?.length ?? 0) > 0 && (
         <section className="mt-8">
@@ -99,7 +113,7 @@ export default function Library() {
           </h2>
           <ul className="mt-3 flex flex-col gap-2">
             {data.inbox.map((f) => {
-              const name = fname(f)
+              const name = f.name
               const slug = importTopic[name] ?? ''
               const cmd = `/study:import ${name}${slug ? ` ${slug}` : ''}`
               return (
@@ -108,7 +122,7 @@ export default function Library() {
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{name}</div>
                       <div className="text-xs opacity-50">
-                        {fmtSize(fsize(f))} · {fmtDate(f.mtime ?? f.Mtime)}
+                        {fmtSize(f.size)} · {fmtDate(f.mtime)}
                       </div>
                     </div>
                     <select
@@ -198,10 +212,10 @@ export default function Library() {
                       </tr>
                     ))
                   : data.library.map((f) => (
-                      <tr key={fname(f)}>
-                        <td className="max-w-56 truncate">{fname(f)}</td>
+                      <tr key={f.name}>
+                        <td className="max-w-56 truncate">{f.name}</td>
                         <td>—</td>
-                        <td className="text-xs opacity-60">{fmtDate(f.mtime ?? f.Mtime)}</td>
+                        <td className="text-xs opacity-60">{fmtDate(f.mtime)}</td>
                       </tr>
                     ))}
               </tbody>

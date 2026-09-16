@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Link2, Network, Search, X } from 'lucide-react'
 import { get, type NoteDetail, type NoteListItem } from '../api'
@@ -8,19 +8,19 @@ import Markdown from '../components/Markdown'
 function NoteDetailView({ detail }: { detail: NoteDetail }) {
   return (
     <article className="mx-auto max-w-2xl p-8">
-      <h1 className="text-xl font-bold">{String(detail.fm.title ?? detail.id)}</h1>
+      <h1 className="text-xl font-bold">{detail.fm.title ?? detail.id}</h1>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs opacity-60">
-        <span className="badge badge-ghost">{String(detail.fm.topic ?? '未分类')}</span>
-        {(Array.isArray(detail.fm.tags) ? detail.fm.tags : []).map((t) => (
-          <span key={String(t)} className="badge badge-outline badge-sm">#{String(t)}</span>
+        <span className="badge badge-ghost">{detail.fm.topic ?? '未分类'}</span>
+        {(detail.fm.tags ?? []).map((t) => (
+          <span key={t} className="badge badge-outline badge-sm">#{t}</span>
         ))}
         <span className="font-mono text-[10px] opacity-60">{detail.id}</span>
       </div>
 
-      {(detail.backlinks.length > 0 || (detail.fm.links as string[] | undefined)?.length) && (
+      {(detail.backlinks.length > 0 || detail.fm.links?.length) && (
         <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
           <Link2 className="h-3.5 w-3.5 opacity-50" />
-          {(detail.fm.links as string[] | undefined)?.map((l) => (
+          {detail.fm.links?.map((l) => (
             <Link key={l} to={`/notes/${l}`} className="badge badge-sm badge-primary badge-outline">
               → {l}
             </Link>
@@ -155,6 +155,10 @@ export default function Notes() {
   const [graphTopic, setGraphTopic] = useState<string | null>(null)
   const [graphSelected, setGraphSelected] = useState<string | null>(null)
   const [graphDetail, setGraphDetail] = useState<NoteDetail | null>(null)
+  const [listErr, setListErr] = useState('')
+  // 请求序号：快速切换笔记/图谱节点时递增，过期响应直接丢弃（竞态防护）
+  const detailSeq = useRef(0)
+  const graphSeq = useRef(0)
 
   const toggleGroup = (topic: string) => {
     setCollapsed((prev) => {
@@ -169,12 +173,21 @@ export default function Notes() {
   }
 
   useEffect(() => {
-    get<NoteListItem[]>('/api/notes').then(setNotes).catch(() => setNotes([]))
+    get<NoteListItem[]>('/api/notes')
+      .then(setNotes)
+      .catch((e) => setListErr(String(e.message ?? e)))
   }, [])
   useEffect(() => {
+    const seq = ++detailSeq.current
     if (id) {
       setDetail(null)
-      get<NoteDetail>(`/api/notes/${id}`).then(setDetail).catch(() => setDetail(null))
+      get<NoteDetail>(`/api/notes/${id}`)
+        .then((d) => {
+          if (seq === detailSeq.current) setDetail(d)
+        })
+        .catch(() => {
+          if (seq === detailSeq.current) setDetail(null)
+        })
     } else {
       setDetail(null)
     }
@@ -220,12 +233,19 @@ export default function Notes() {
 
   // 图谱节点选中后拉取详情。
   useEffect(() => {
+    const seq = ++graphSeq.current
     if (!graphSelected) {
       setGraphDetail(null)
       return
     }
     setGraphDetail(null)
-    get<NoteDetail>(`/api/notes/${graphSelected}`).then(setGraphDetail).catch(() => setGraphDetail(null))
+    get<NoteDetail>(`/api/notes/${graphSelected}`)
+      .then((d) => {
+        if (seq === graphSeq.current) setGraphDetail(d)
+      })
+      .catch(() => {
+        if (seq === graphSeq.current) setGraphDetail(null)
+      })
   }, [graphSelected])
 
   const graphNotes = useMemo(() => {
@@ -276,7 +296,9 @@ export default function Notes() {
         </div>
         <div className="flex-1 overflow-y-auto px-3 pb-4">
           {tab === 'list' ? (
-            !notes ? (
+            listErr ? (
+              <div className="p-4 text-sm text-error">{listErr}</div>
+            ) : !notes ? (
               <div className="p-4 text-sm opacity-50">加载中…</div>
             ) : filtered.length === 0 ? (
               <div className="p-4 text-sm opacity-50">
@@ -315,6 +337,9 @@ export default function Notes() {
                                 {n.cards > 0 && (
                                   <div className="mt-0.5 text-[11px] opacity-50">{n.cards} 卡</div>
                                 )}
+                                {n.gaps > 0 && (
+                                  <div className="mt-0.5 text-[11px] text-warning/80">{n.gaps} 个待补 Gap</div>
+                                )}
                               </Link>
                             </li>
                           ))}
@@ -325,6 +350,8 @@ export default function Notes() {
                 })}
               </div>
             )
+          ) : listErr ? (
+            <div className="p-4 text-sm text-error">{listErr}</div>
           ) : !notes ? (
             <div className="p-4 text-sm opacity-50">加载中…</div>
           ) : grouped.length === 0 ? (
