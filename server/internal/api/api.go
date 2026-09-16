@@ -40,6 +40,7 @@ func Register(r *gin.Engine, st *store.Store) {
 
 		api.GET("/review/queue", a.ReviewQueue)
 		api.POST("/review/grade", a.ReviewGrade)
+		api.POST("/review/regrade", a.ReviewRegrade)
 		api.POST("/review/recall", a.ReviewRecall)
 
 		api.GET("/notes", a.ListNotes)
@@ -326,6 +327,7 @@ func (a *API) ReviewGrade(c *gin.Context) {
 		state = fsrsx.New(now)
 	}
 	before := state.State
+	fsrsBefore := state.ToMap()
 	next, err := fsrsx.Grade(state, req.Rating, now)
 	if err != nil {
 		errJSON(c, 400, err)
@@ -337,7 +339,71 @@ func (a *API) ReviewGrade(c *gin.Context) {
 	}
 	_ = a.Store.AppendJSONL("progress/review-log.jsonl", store.ReviewLogEntry{
 		Card: req.ID, Rating: req.Rating, TS: now.UTC().Format(time.RFC3339),
-		StateBefore: before, StateAfter: next.State,
+		StateBefore: before, StateAfter: next.State, FSRSBefore: fsrsBefore,
+	})
+	c.JSON(200, gin.H{"id": req.ID, "fsrs": next.ToMap(), "state_name": fsrsx.StateName(next.State)})
+}
+
+// ReviewRegrade 改判：恢复该卡最近一次评分的评分前状态，按新档位重算。
+// 日志只追加：先追加作废行（void+void_of），再追加新评分行（带新 fsrs_before，可连续改判）。
+func (a *API) ReviewRegrade(c *gin.Context) {
+	var req gradeReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		errJSON(c, 400, err)
+		return
+	}
+	if _, err := a.Store.GetCard(req.ID); err != nil {
+		errJSON(c, 404, fmt.Errorf("卡片不存在: %s", req.ID))
+		return
+	}
+	log, err := a.Store.ReadReviewLog()
+	if err != nil {
+		errJSON(c, 500, err)
+		return
+	}
+	voided := voidedSet(log)
+	// 找该卡最近一条有效评分记录（rating 1-4 且未被作废）
+	last := -1
+	for i := len(log) - 1; i >= 0; i-- {
+		e := log[i]
+		if e.Card == req.ID && e.Rating >= 1 && e.Rating <= 4 && !voided[e.TS] {
+			last = i
+			break
+		}
+	}
+	if last < 0 {
+		errJSON(c, 409, fmt.Errorf("卡片 %s 没有可改判的评分记录", req.ID))
+		return
+	}
+	prev := log[last]
+	if prev.FSRSBefore == nil {
+		errJSON(c, 409, fmt.Errorf("该评分记录缺少 fsrs_before，不支持改判"))
+		return
+	}
+	state, err := fsrsx.FromMap(prev.FSRSBefore)
+	if err != nil {
+		errJSON(c, 422, fmt.Errorf("评分前状态无法解析: %w", err))
+		return
+	}
+	now := time.Now()
+	before := state.State
+	fsrsBefore := state.ToMap()
+	next, err := fsrsx.Grade(state, req.Rating, now)
+	if err != nil {
+		errJSON(c, 400, err)
+		return
+	}
+	if err := a.Store.WriteCardFSRS(req.ID, next.ToMap()); err != nil {
+		errJSON(c, 500, err)
+		return
+	}
+	nowTS := now.UTC().Format(time.RFC3339)
+	_ = a.Store.AppendJSONL("progress/review-log.jsonl", store.ReviewLogEntry{
+		Card: req.ID, TS: nowTS, Void: true, VoidOf: prev.TS,
+	})
+	_ = a.Store.AppendJSONL("progress/review-log.jsonl", store.ReviewLogEntry{
+		Card: req.ID, Rating: req.Rating, TS: nowTS,
+		StateBefore: before, StateAfter: next.State, FSRSBefore: fsrsBefore,
 	})
 	c.JSON(200, gin.H{"id": req.ID, "fsrs": next.ToMap(), "state_name": fsrsx.StateName(next.State)})
 }
@@ -513,6 +579,17 @@ func (a *API) GetSession(c *gin.Context) {
 
 // ---------- 掌握度与统计 ----------
 
+// voidedSet 收集被作废评分记录的 ts（作废行 void_of 指向被作废记录的 ts）。
+func voidedSet(log []store.ReviewLogEntry) map[string]bool {
+	m := map[string]bool{}
+	for _, e := range log {
+		if e.Void && e.VoidOf != "" {
+			m[e.VoidOf] = true
+		}
+	}
+	return m
+}
+
 func (a *API) GetMastery(c *gin.Context) {
 	mastery, err := a.Store.ReadMastery()
 	if err != nil {
@@ -521,6 +598,7 @@ func (a *API) GetMastery(c *gin.Context) {
 	}
 	cards, _ := a.Store.ListCards()
 	log, _ := a.Store.ReadReviewLog()
+	voided := voidedSet(log)
 	cardTopic := map[string]string{}
 	perTopic := map[string]map[string]any{}
 	ensure := func(t string) map[string]any {
@@ -546,6 +624,9 @@ func (a *API) GetMastery(c *gin.Context) {
 		}
 	}
 	for _, e := range log {
+		if e.Void || voided[e.TS] {
+			continue
+		}
 		t := cardTopic[e.Card]
 		m := ensure(t)
 		m["reviews"] = m["reviews"].(int) + 1
@@ -569,6 +650,7 @@ func (a *API) GetStats(c *gin.Context) {
 	}
 	mastery, _ := a.Store.ReadMastery()
 	sessions, _ := a.Store.ListSessions()
+	voided := voidedSet(log)
 	now := time.Now()
 	today := now.Format("2006-01-02")
 
@@ -587,6 +669,9 @@ func (a *API) GetStats(c *gin.Context) {
 		}
 	}
 	for _, e := range log {
+		if e.Void || voided[e.TS] {
+			continue
+		}
 		if t, err := time.Parse(time.RFC3339, e.TS); err == nil {
 			key := t.Local().Format("2006-01-02")
 			dayCount[key]++

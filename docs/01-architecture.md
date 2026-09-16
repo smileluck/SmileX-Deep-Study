@@ -119,7 +119,9 @@ level 0-5（0=未接触 … 5=能讲授）。每次变更必须附 evidence（ki
 
 ### 日志（追加式，永不改写）
 
-- `review-log.jsonl`：`{"card":"card-001","rating":3,"ts":"...","state_before":0,"state_after":1}`
+- `review-log.jsonl`：`{"card":"card-001","rating":3,"ts":"...","state_before":0,"state_after":1,"fsrs_before":{...}}`
+  - `fsrs_before`：评分前完整 fsrs 状态，供改判（`POST /api/review/regrade`）还原调度状态。
+  - 改判不改历史行：追加一条作废行 `{"card":"card-001","ts":"...","void":true,"void_of":"<被作废记录的 ts>"}` 和一条新评分行；统计端须跳过作废行及 `void_of` 指向的记录。
 - `recall-log.jsonl`：`{"card":"card-001","answer":"学习者凭记忆写的答案","ts":"..."}`（复习播放器"自由回忆"模式产生，由 quiz/diagnose 工作流批改后清写 mastery）
 
 ### 材料 `data/library/materials.json`

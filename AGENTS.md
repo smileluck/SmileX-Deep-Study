@@ -166,6 +166,8 @@ updated: 2026-09-15
 
 1. **`fsrs:` 块、`review-log.jsonl`、`recall-log.jsonl` 由 Go 服务端独占写入**——你只读不写。
 2. 日志类文件只追加，不修改历史行。
+   - review-log 行格式：`{"card","rating","ts","state_before","state_after","fsrs_before"}`；`fsrs_before` 是评分前完整 fsrs 状态，供服务端改判（`POST /api/review/regrade`）还原。
+   - 改判不改历史行：服务端追加作废行 `{"card","ts","void":true,"void_of":"<被作废记录 ts>"}` 和新评分行。**统计复习数据时（如 W6）须跳过作废行及 `void_of` 指向的记录**。
 3. 不删除任何笔记/卡片/会话文件；废弃卡片将 `topic` 改为 `_archived`。
 4. 建卡必须带全零 `fsrs:` 块；建笔记必须带完整 frontmatter。
 5. 写完后向用户报告：创建了哪些文件、更新了哪些文件。

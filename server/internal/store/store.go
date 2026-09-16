@@ -529,11 +529,16 @@ func (s *Store) AppendJSONL(rel string, v any) error {
 
 // ReviewLogEntry review-log.jsonl 的一行。
 type ReviewLogEntry struct {
-	Card       string `json:"card"`
-	Rating     int    `json:"rating"`
-	TS         string `json:"ts"`
-	StateBefore int   `json:"state_before"`
-	StateAfter  int   `json:"state_after"`
+	Card        string         `json:"card"`
+	Rating      int            `json:"rating"`
+	TS          string         `json:"ts"`
+	StateBefore int            `json:"state_before"`
+	StateAfter  int            `json:"state_after"`
+	// FSRSBefore 评分前完整 fsrs 状态，供改判（regrade）还原；旧日志行没有此字段
+	FSRSBefore map[string]any `json:"fsrs_before,omitempty"`
+	// Void 作废标记行：配合 VoidOf 作废一条历史评分（日志只追加，不改旧行）
+	Void   bool   `json:"void,omitempty"`
+	VoidOf string `json:"void_of,omitempty"`
 }
 
 func (s *Store) ReadReviewLog() ([]ReviewLogEntry, error) {

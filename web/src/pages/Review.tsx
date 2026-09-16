@@ -90,23 +90,29 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
       </select>
     ) : null
 
-  // 第一步：提交评分，成功后揭示答案（不自动跳下一张）；失败不揭示、可重试
+  // 提交评分：首评成功后揭示答案（不自动跳下一张）；已揭示时点其他档位 = 改判，
+  // 服务端恢复评分前 fsrs 状态后按新档位重算（不重复计数）。失败不揭示、可重试
   const grade = useCallback(
     async (rating: number) => {
-      if (!card || busy || revealed) return
+      if (!card || busy) return
+      const isRegrade = revealed && graded !== null
+      if (revealed && !isRegrade) return
+      if (isRegrade && rating === graded) return
       setBusy(true)
       try {
-        await post('/api/review/grade', { id: card.id, rating })
-        setDone((d) => d + 1)
+        await post(isRegrade ? '/api/review/regrade' : '/api/review/grade', { id: card.id, rating })
+        if (!isRegrade) {
+          setDone((d) => d + 1)
+          setRevealed(true)
+        }
         setGraded(rating)
-        setRevealed(true)
       } catch (e) {
         setErr(String((e as Error).message))
       } finally {
         setBusy(false)
       }
     },
-    [card, busy, revealed],
+    [card, busy, revealed, graded],
   )
 
   // 第二步：推进到下一张（或清空队列），并重置本卡状态
@@ -138,8 +144,8 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
       if ((e.key === 'h' || e.key === 'H') && card?.hint) {
         // H = 显示/隐藏提示
         setHintShown((v) => !v)
-      } else if (!revealed && ['1', '2', '3', '4'].includes(e.key)) {
-        // 未评分：1-4 直接评分并揭示
+      } else if (['1', '2', '3', '4'].includes(e.key)) {
+        // 1-4 评分；已评分（已揭示）时 = 改判
         grade(Number(e.key))
       } else if (revealed && (e.code === 'Space' || e.key === 'Enter')) {
         // 已评分：空格/回车 = 下一张
@@ -282,7 +288,7 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
         </div>
       )}
 
-      {/* 四档评分始终可点击；已评分后高亮所选档位，其余变淡禁用 */}
+      {/* 四档评分：评分后仍可按其他档位改判；高亮当前档位，其余变淡 */}
       <div className="mt-6 grid grid-cols-4 gap-3 transition-opacity">
         {[
           { r: 1, label: '重来', sub: '完全想不起', cls: 'btn-error' },
@@ -294,7 +300,7 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
             key={r}
             className={`btn ${cls} flex flex-col gap-0 py-3 text-primary-content ${revealed && graded !== r ? 'opacity-30' : ''}`}
             onClick={() => grade(r)}
-            disabled={busy || revealed}
+            disabled={busy}
           >
             <span className="text-sm font-semibold">
               {label} <kbd className="kbd kbd-sm opacity-70">{r}</kbd>
@@ -305,7 +311,9 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
       </div>
       {err && <div className="mt-3 text-sm text-error">{err}</div>}
       <p className="mt-3 text-center text-[11px] opacity-40">
-        评分写入卡片 fsrs 块与 review-log · 由 go-fsrs 计算下次间隔
+        {revealed
+          ? '看答案后发现与记忆不符？直接改点其他档位即可改判'
+          : '评分写入卡片 fsrs 块与 review-log · 由 go-fsrs 计算下次间隔'}
       </p>
     </div>
   )
