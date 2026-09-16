@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { PenLine, PartyPopper, Repeat } from 'lucide-react'
+import { Lightbulb, PenLine, PartyPopper, Repeat } from 'lucide-react'
 import { get, post, type MasteryResp, type QueueCard, type Topic } from '../api'
 
 // 队列播放器：先评分后揭示（检索练习），四档自评走 FSRS，确认答案后手动点「下一张」；
@@ -15,6 +15,8 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
   const [recallSaved, setRecallSaved] = useState(false)
   // 已提交的评分档位：非 null 表示本卡已评分并揭示答案
   const [graded, setGraded] = useState<number | null>(null)
+  // 提示默认隐藏，点击按钮或按 H 才显示（避免直接剧透回忆抓手）
+  const [hintShown, setHintShown] = useState(false)
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(0)
   const [err, setErr] = useState('')
@@ -36,6 +38,7 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
     setRecallText('')
     setRecallSaved(false)
     setGraded(null)
+    setHintShown(false)
     setDone(0)
     setErr('')
     const q = `?mode=${mode}${topic ? `&topic=${encodeURIComponent(topic)}` : ''}`
@@ -113,6 +116,7 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
     setRecallText('')
     setRecallSaved(false)
     setGraded(null)
+    setHintShown(false)
     if (idx + 1 >= total) {
       setQueue([])
     } else {
@@ -122,10 +126,19 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLTextAreaElement | null
-      // 自由回忆模式下，仅在输入框可编辑时放行按键给它
-      if (recallMode && target?.tagName === 'TEXTAREA' && !target.disabled) return
-      if (!revealed && ['1', '2', '3', '4'].includes(e.key)) {
+      const target = e.target as HTMLElement | null
+      // 可编辑的表单控件（输入框/下拉框）聚焦时放行按键，不触发快捷键
+      if (
+        (target instanceof HTMLTextAreaElement ||
+          target instanceof HTMLInputElement ||
+          target instanceof HTMLSelectElement) &&
+        !target.disabled
+      )
+        return
+      if ((e.key === 'h' || e.key === 'H') && card?.hint) {
+        // H = 显示/隐藏提示
+        setHintShown((v) => !v)
+      } else if (!revealed && ['1', '2', '3', '4'].includes(e.key)) {
         // 未评分：1-4 直接评分并揭示
         grade(Number(e.key))
       } else if (revealed && (e.code === 'Space' || e.key === 'Enter')) {
@@ -136,7 +149,7 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [revealed, grade, next, recallMode])
+  }, [revealed, grade, next, card])
 
   const saveRecall = async () => {
     if (!card || !recallText.trim()) return
@@ -224,12 +237,17 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
             </div>
             <h2 className="mt-3 text-lg leading-relaxed font-medium whitespace-pre-wrap">{card.front}</h2>
 
-            {card.hint && (
-              <div className="mt-3 w-full rounded-xl bg-warning/10 p-4 text-sm leading-relaxed">
-                <span className="mr-2 text-xs font-semibold opacity-60">提示</span>
-                {card.hint}
-              </div>
-            )}
+            {card.hint &&
+              (hintShown ? (
+                <div className="mt-3 w-full rounded-xl bg-warning/10 p-4 text-sm leading-relaxed">
+                  <span className="mr-2 text-xs font-semibold opacity-60">提示</span>
+                  {card.hint}
+                </div>
+              ) : (
+                <button className="btn btn-ghost btn-sm mt-3 gap-1.5" onClick={() => setHintShown(true)}>
+                  <Lightbulb className="h-3.5 w-3.5" /> 显示提示 <kbd className="kbd kbd-sm">H</kbd>
+                </button>
+              ))}
 
             {recallMode && (
               <div className="mt-2 w-full">
