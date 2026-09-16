@@ -16,10 +16,14 @@ description: 把 data/inbox/ 中的学习材料导入系统：提取内容、建
 2. **确定主题**：用户给了 topic-slug 就用；否则根据材料内容起一个 kebab-case slug，在 `data/topics/<slug>/manifest.json` 建主题（字段：slug/name/goal/created/description，goal 可先留空问用户）。**slug 已存在则复用 manifest**：不重建、不改 goal（description 如需补充可更新），多个材料可陆续导入同一主题。
 3. **归档材料**：把文件移动到 `data/library/`，重命名为 `<materials.json 当前最大 id + 1>-<原文件名>`；在 `data/library/materials.json` 数组**追加** `{id, original_name, stored_name, topic, status: "imported", imported_at: <今天>}`。
 4. **写原子笔记**：通读材料后先梳理概念的学习依赖顺序（先修概念在前），按该顺序为每篇笔记分配 `order`（frontmatter 字段，主题内从 1 递增；追加导入已有主题时从该主题现有 max(order) 续排）。为材料中每个值得学的独立概念写一篇 `data/notes/<kebab-id>.md`（按角色纪律：自己的话重组、原子化、带 links）。
-5. **起草卡片**：每篇笔记 2-5 张 `data/cards/<note-id>-cN.md`，质量标准见角色铁律 3；每张卡必须写 `hint`（15-40 字回忆抓手，只给思考方向，不给答案）；frontmatter 的 `fsrs:` 块原样复制 AGENTS.md 的全零模板。
-6. **写会话日志**：`data/sessions/YYYYMMDD-import-<topic>.md`（type: import），并在 `data/progress/mastery.json` 为该 topic 新建条目（level 0，evidence 记 kind: import）。
-7. **收尾自检（必须）**：执行 `curl -s http://127.0.0.1:5574/api/validate`——`errors` 必须清零；有错就修复后重跑，直到干净。
-8. **报告**：列出新建/更新的全部文件 + 校验结果，提醒用户到 Web UI（默认 http://127.0.0.1:5574）查看到期队列开始复习。
+5. **概念去重（追加导入已有主题时必做，在写笔记前执行）**：先读该主题现有全部笔记（`data/notes/` 中 `topic` 等于该 slug 的笔记，看 title 与正文要点），把材料中梳理出的概念与之一一比对：
+   - **已覆盖**：现有笔记已讲清该概念 → 不新建。若新材料带来增量（更清晰的阐述、新例子、修正），把增量合并进现有笔记正文（保持原子结构与"自己的话"风格，可按需补充 `links`）；`id`/`order`/`created`/`source` 字段不动。
+   - **部分重叠**：材料讲的是该概念的新侧面 → 为真正的新概念写新笔记，与已有笔记通过 `links` 互链。
+   - **全新概念**：正常新建笔记。
+6. **起草卡片**：每篇笔记 2-5 张 `data/cards/<note-id>-cN.md`，质量标准见角色铁律 3；每张卡必须写 `hint`（15-40 字回忆抓手，只给思考方向，不给答案）；frontmatter 的 `fsrs:` 块原样复制 AGENTS.md 的全零模板。合并过的笔记只针对增量内容补卡，先检查该笔记已有卡片避免题面重复。
+7. **写会话日志**：`data/sessions/YYYYMMDD-import-<topic>.md`（type: import），正文记录去重比对结果（哪些概念合并进了哪篇现有笔记、哪些跳过），并在 `data/progress/mastery.json` 为该 topic 新建条目（level 0，evidence 记 kind: import；主题已有条目则不重建）。
+8. **收尾自检（必须）**：执行 `curl -s http://127.0.0.1:5574/api/validate`——`errors` 必须清零；有错就修复后重跑，直到干净。
+9. **报告**：列出新建/更新的全部文件 + 校验结果，提醒用户到 Web UI（默认 http://127.0.0.1:5574）查看到期队列开始复习。
 
 ## 已知坑（会直接导致校验不过，务必先看）
 

@@ -14,9 +14,9 @@
 1. 提取材料内容（PDF/DOCX 等先解析文本；解析不了就如实报告，不许编造）；
 2. 确定或创建 data/topics/<slug>/manifest.json；
 3. 材料移动到 data/library/ 并重命名为 <materials.json 当前最大 id + 1>-<原文件名>，在 data/library/materials.json 追加索引记录 {id, original_name, stored_name, topic, status: "imported", imported_at: <今天>}；
-4. 通读材料后先梳理概念的学习依赖顺序（先修概念在前），按该顺序为每篇笔记分配 `order`；为每个值得学的概念写一篇原子笔记 data/notes/<id>.md（用自己的话重组，配 frontmatter 与 links，order 从 1 递增，追加导入已有主题时从现有 max(order) 续排）；
-5. 每篇笔记起草 2-5 张卡片 data/cards/<id>.md，问"为什么/怎么用/边界在哪"，每张卡写 hint（15-40 字回忆抓手，只给思考方向，不给答案），fsrs: 块原样复制 AGENTS.md 的全零模板；
-6. 写会话日志 data/sessions/YYYYMMDD-import-<topic>.md（type: import），并在 mastery.json 新建该主题条目（level 0）；
+4. 通读材料后先梳理概念的学习依赖顺序（先修概念在前），按该顺序为每篇笔记分配 `order`；为每个值得学的概念写一篇原子笔记 data/notes/<id>.md（用自己的话重组，配 frontmatter 与 links，order 从 1 递增，追加导入已有主题时从现有 max(order) 续排）。追加导入已有主题时先做概念去重：与该主题现有笔记逐一比对——已覆盖的概念不新建，有增量就合并进现有笔记正文（id/order/created/source 不动，可补 links），部分重叠则新笔记与已有笔记 links 互链；
+5. 每篇笔记起草 2-5 张卡片 data/cards/<id>.md，问"为什么/怎么用/边界在哪"，每张卡写 hint（15-40 字回忆抓手，只给思考方向，不给答案），fsrs: 块原样复制 AGENTS.md 的全零模板；合并过的笔记只对增量内容补卡，避免与已有卡片题面重复；
+6. 写会话日志 data/sessions/YYYYMMDD-import-<topic>.md（type: import，正文记录去重比对结果），并在 mastery.json 新建该主题条目（level 0；已有条目则不重建）；
 7. 收尾自检：curl -s http://127.0.0.1:5574/api/validate，errors 清零才算完成；
 8. 报告全部新建/更新文件清单 + 校验结果。
 
