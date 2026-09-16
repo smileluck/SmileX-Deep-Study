@@ -28,3 +28,6 @@ Thumbs.db
 
 # ---- ZCode 会话级草稿（skills/commands 是交付物，保留） ----
 .zcode/plans/
+
+# ---- 本地学习数据（个人记录，不上传） ----
+data/
