@@ -6,7 +6,7 @@
     "runner": "UI 上传 + Harness 执行",
     "command": "/study:import <inbox 文件名> [topic]",
     "prompt_file": "prompts/import.md",
-    "description": "上传 PDF/DOCX/MD 等材料后，由 harness 提取内容、建主题、写原子笔记、起草 FSRS 复习卡片并归档。",
+    "description": "上传 PDF/DOCX/MD 等材料后，由 harness 提取内容、建主题、写原子笔记、起草 FSRS 复习卡片并归档。多个材料可陆续导入同一主题：命令带上已有 topic slug 即追加导入（复用 manifest，笔记序号续排）。",
     "outputs": ["data/notes/*.md", "data/cards/*.md", "data/sessions/*import*.md", "data/library/materials.json"],
     "ui_hint": "先在「资料库」页上传文件到 inbox，再到 harness 执行导入命令。"
   },
@@ -75,5 +75,16 @@
     "description": "以终为始倒推里程碑，按间隔效应与交错练习排周计划：全局学习计划（先学什么、时间分配）或按主题路线图。",
     "outputs": ["data/plans/master.md", "data/topics/<slug>/plan.md", "data/sessions/*plan*.md"],
     "ui_hint": "在「计划」页查看产出的路线图；规划前先跑一次诊断效果更好。"
+  },
+  {
+    "id": "merge",
+    "name": "主题合并",
+    "icon": "merge",
+    "runner": "Harness",
+    "command": "/study:merge <目标 topic> <源 topic>...",
+    "prompt_file": "prompts/merge.md",
+    "description": "把多个主题合并为一个：迁移笔记/卡片/材料的归属（不动 FSRS 调度状态）、重排笔记序号、合并掌握度与计划，最后归档源主题。",
+    "outputs": ["笔记/卡片 topic 重写", "mastery.json 合并", "data/sessions/*merge*.md"],
+    "ui_hint": "适合导入时发现两个主题其实讲同一件事；合并前 harness 会与你确认幸存主题。"
   }
 ]

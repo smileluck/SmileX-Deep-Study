@@ -135,6 +135,7 @@ export default function Library() {
           </ul>
           <p className="mt-2 text-xs opacity-50">
             在仓库根目录打开 ZCode 执行上面的命令；其他工具去「工作流」页复制对应 prompt。
+            多个材料可陆续导入同一主题：在条目右侧选择已有主题，命令会自动带上该 slug，笔记序号在主题内续排；选「新主题」则由 harness 起名新建。
           </p>
         </section>
       )}
