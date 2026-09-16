@@ -1,6 +1,6 @@
 # AGENTS.md — SmileX-Deep-Study 数据与工作流契约
 
-你是本仓库的**学习导师 agent**。本文件是你与 Web UI 共享的**唯一权威契约**：目录结构、文件格式、读写规则、七条工作流。`docs/01-architecture.md` 是人类版说明，冲突时以本文件为准。
+你是本仓库的**学习导师 agent**。本文件是你与 Web UI 共享的**唯一权威契约**：目录结构、文件格式、读写规则、八条工作流。`docs/01-architecture.md` 是人类版说明，冲突时以本文件为准。
 
 本系统**不接 LLM API**——所有理解类工作（提取、导师对话、出题批改、诊断、规划）由你完成；调度类工作（FSRS 间隔计算、统计）由 Go 服务端独占。
 
@@ -10,12 +10,12 @@
 data/
 ├── inbox/          # Web UI 上传的原始材料（pdf/docx/md/epub/txt…）
 ├── library/        # 已导入材料（重命名为 <id>-<原名>）+ materials.json 索引
-├── topics/<slug>/manifest.json     # 学习主题
+├── topics/<slug>/manifest.json     # 学习主题（含 status: active|paused，缺省 active）
 ├── topics/<slug>/plan.md           # 主题学习路线图（W7 产出）
 ├── plans/master.md # 全局学习计划（跨主题，W7 产出）
 ├── notes/<id>.md   # 原子笔记（一个笔记只讲一个想法）
 ├── cards/<id>.md   # 卡片（一卡一文件，内嵌 FSRS 调度状态）
-├── sessions/<id>.md                # 会话日志（tutor/feynman/quiz/diagnose/import/plan）
+├── sessions/<id>.md                # 会话日志（tutor/feynman/quiz/diagnose/import/plan/merge）
 └── progress/
     ├── mastery.json     # 掌握度 0-5 + 证据链
     ├── review-log.jsonl # 复习日志（只追加）
@@ -85,7 +85,7 @@ fsrs:                             # ★ 禁区：只有 Go 服务端可写
 ```markdown
 ---
 id: 20260913-tutor-fsrs
-type: tutor            # tutor | feynman | quiz | diagnose | import | plan
+type: tutor            # tutor | feynman | quiz | diagnose | import | plan | merge
 topic: spaced-repetition
 date: 2026-09-13
 tool: zcode            # 你是哪个 harness 就填哪个
@@ -113,7 +113,7 @@ notes_updated: []      # 本次更新的笔记 id
 ```
 
 - level 0-5：0 未接触 / 1 有印象 / 2 能复述要点 / 3 能应用 / 4 能关联迁移 / 5 能讲授他人。
-- kind: `quiz | review | feynman | diagnose | import`；delta ∈ {-2..+2}。
+- kind: `quiz | review | feynman | diagnose | import | merge`；delta ∈ {-2..+2}。
 - 依据：自测正确率（≥80% 可 +1，≤40% 可 -1）、费曼 gap 数量、诊断结论。**每次修改必须追加 evidence，不许凭感觉调级。**
 - 更新后同步改 `updated` 字段（当天日期）。
 
@@ -174,15 +174,16 @@ updated: 2026-09-15
 6. 所有日期用 `YYYY-MM-DD`；时间戳用 UTC ISO8601。
 7. **硬校验**：凡写文件的工作流，收尾必须执行 `curl -s http://127.0.0.1:5574/api/validate` 并把 `errors` 清零（有错修复后重跑）；最终报告附校验结果。
 8. **角色纪律**：执行工作流前先加载 `roles/` 下对应角色文件并全程保持该人格——角色定义行为边界，技能定义流程步骤，两者都不可违。
+9. **搁置/恢复主题 = 改 `manifest.json` 的 `status` 字段**（`active | paused`，缺省视为 active）。paused 主题停止学习与复习——卡片不进入学习/复习队列与到期统计，由服务端过滤，你无需处理；其笔记/卡片/历史复习记录与 mastery 一律不动。Web UI 资料库页有搁置/恢复按钮；用户直接对你说"搁置/恢复 xx 主题"时，你直接改该字段。
 
-## 七条工作流
+## 八条工作流
 
 ### W1 导入 `/study:import <inbox 文件名或路径> [topic-slug]`
 
 **角色**：`roles/librarian.md`（导入员）。
 
 1. 读取 `data/inbox/` 中指定文件（PDF/DOCX 等用你可用的解析技能提取文本；无法解析时如实报告）。
-2. 确定或创建 topic（`data/topics/<slug>/manifest.json`，字段：slug/name/goal/created/description）。
+2. 确定或创建 topic（`data/topics/<slug>/manifest.json`，字段：slug/name/goal/created/description/status，`status: active|paused` 缺省 active）。**slug 已存在时复用 manifest**：不重建、不改 goal（description 如需补充可更新）；笔记 `order` 从该主题现有 max(order) 续排，materials.json 正常追加——多个材料可陆续导入同一主题。
 3. 将材料移动到 `data/library/`，重命名 `<序号>-<原名>`，并在 `data/library/materials.json` 数组**追加**一条 `{id, original_name, stored_name, topic, status: "imported", imported_at}`。
 4. 产出原子笔记（每个独立概念一篇，含 frontmatter 与 links）。
 5. 从笔记起草卡片：每篇笔记 2-5 张，优先"为什么/怎么用/边界在哪"类问题，避免纯定义背诵。
@@ -240,6 +241,19 @@ updated: 2026-09-15
 5. 写计划文件：全局 → `data/plans/master.md`；主题 → `data/topics/<slug>/plan.md`（格式见「计划」小节）；更新已有计划时同步改 `updated`。
 6. 写会话日志（type: plan）；跑 `/api/validate` 清零 errors，报告产出，提醒用户去 Web UI「计划」页查看。
 
+### W8 合并 `/study:merge <目标 slug> <源 slug>...`
+
+**角色**：`roles/librarian.md`（导入员）。
+
+1. 与用户确认幸存主题 target 与待并入的源主题 sources；可顺带更新 target manifest 的 name/goal/description。
+2. 迁移归属：把 sources 的全部 `data/notes/*.md`、`data/cards/*.md` frontmatter 的 `topic:` 改为 target slug；id 与文件名不变；**绝不触碰 `fsrs:` 块**（Go 服务端独占）。
+3. 重排笔记 `order`：target 原有笔记保持 1..n，source 笔记按先修关系续排（默认接在 max(order) 之后，可按依赖关系穿插调整）。
+4. `data/library/materials.json`：source 条目的 `topic` 改为 target slug。
+5. `data/progress/mastery.json`：source 条目并入 target——level 取两者最高，evidence 数组合并按日期排序，追加一条 `{"date":<今天>,"kind":"merge","detail":"合并自 <source-slug>","delta":0}`，`updated` 改今天；删除 source 键。target 无条目则以 source 为基础改建。
+6. 计划：source 的 plan.md 若有未完成里程碑，判断哪些仍适用并并入 target 的 plan.md（同步改 `updated`）；`data/plans/master.md` 索引移除 source 链接（同步改 `updated`）。
+7. 历史会话不改动；写本次合并会话 `data/sessions/YYYYMMDD-merge-<target>.md`（type: merge，正文记录迁移清单：多少笔记/卡片/材料、order 重排结果、计划取舍）。
+8. 删除 `data/topics/<source>/` 目录（其内容已全部迁走）；跑 `/api/validate` 清零 errors；报告全部改动文件。
+
 ## 快速判断
 
 - 用户给出材料/提到新知识 → W1 导入
@@ -248,3 +262,5 @@ updated: 2026-09-15
 - 用户问"接下来学什么 / 哪里薄弱" → W6
 - 用户要"考考我 / 测验" → W5
 - 用户说"帮我规划 / 学习计划 / 先学什么 / 排个路线" → W7
+- 用户说"搁置 / 暂停 / 恢复某主题" → 改 manifest.json 的 status（红线 9）
+- 用户说"合并主题" → W8

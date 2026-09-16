@@ -12,7 +12,7 @@ description: 学习路径规划：以终为始倒推里程碑，按间隔效应�
 1. **确认输入**：学习目标、期限（horizon）、每周可投入时间。学习者没给的，提出明确假设并请其确认。
 2. **读取现状**：
    - 全局模式（无 topic 参数）：`data/progress/mastery.json`（各主题 level）、`data/sessions/` 近期 diagnose 会话结论、`data/topics/*/manifest.json`（目标与描述）
-   - 主题模式（有 topic 参数）：该 topic 的 manifest、全部笔记（含 Gaps）、卡片数量与复习状态
+   - 主题模式（有 topic 参数）：该 topic 的 manifest、全部笔记（含 Gaps；按 frontmatter `order` 升序读取，先修概念在前，无 order 的排最后）、卡片数量与复习状态
 3. **backwards design**：从目标倒推 3-5 个里程碑，每个绑定可检验完成标准（角色铁律 2），排出先后顺序（主题模式）或主题间优先级（全局模式，引用 mastery/diagnose 证据）。
 4. **排周计划**：里程碑摊到各周；新内容与复习交错、同主题回访按递增间隔；每天复习队列保底；预留约 20% 缓冲。
 5. **写计划文件**（格式见 AGENTS.md「计划」小节）：

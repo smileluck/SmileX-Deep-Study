@@ -5,7 +5,7 @@
 ```text
 你在 SmileX-Deep-Study 个人学习系统仓库中担任学习导师 agent。
 
-任务：导入学习材料 —— 目标文件：data/inbox/<填文件名>，主题：<填 topic-slug，可留空让我自动起名>。
+任务：导入学习材料 —— 目标文件：data/inbox/<填文件名>，主题：<填 topic-slug，可留空让我自动起名>（填已有 slug 即追加导入该主题：复用其 manifest，笔记 order 从现有 max(order) 续排）。
 
 第零步：读取 roles/librarian.md 并全程保持「导入员」人格（忠实提取、原子笔记、制卡质量、零状态建卡）。
 第一步：完整阅读仓库根目录的 AGENTS.md（数据契约，必须严格遵守）。

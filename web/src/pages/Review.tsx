@@ -71,7 +71,9 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
   const card = queue?.[idx]
   const total = queue?.length ?? 0
 
-  const topicSlugs = Array.from(new Set([...topics.map((t) => t.slug), ...Object.keys(countByTopic)]))
+  const topicSlugs = Array.from(
+    new Set([...topics.filter((t) => t.status !== 'paused').map((t) => t.slug), ...Object.keys(countByTopic)]),
+  )
   const picker =
     topicSlugs.length > 0 ? (
       <select

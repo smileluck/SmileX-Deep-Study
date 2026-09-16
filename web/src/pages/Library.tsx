@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { FileUp, FolderTree, Inbox, Terminal } from 'lucide-react'
-import { fname, fmtDate, fmtSize, fsize, get, type MaterialsResp, type Topic } from '../api'
+import { FileUp, FolderTree, Inbox, Pause, Play, Terminal } from 'lucide-react'
+import { fname, fmtDate, fmtSize, fsize, get, post, type MaterialsResp, type Topic } from '../api'
 import CopyButton from '../components/CopyButton'
 
 export default function Library() {
@@ -9,6 +9,8 @@ export default function Library() {
   const [dragging, setDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [msg, setMsg] = useState('')
+  const [importTopic, setImportTopic] = useState<Record<string, string>>({})
+  const [statusBusy, setStatusBusy] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(() => {
@@ -16,6 +18,20 @@ export default function Library() {
     get<Topic[]>('/api/topics').then(setTopics).catch(() => setTopics([]))
   }, [])
   useEffect(load, [load])
+
+  const toggleTopicStatus = async (t: Topic) => {
+    const next = t.status === 'paused' ? 'active' : 'paused'
+    setStatusBusy(t.slug)
+    setMsg('')
+    try {
+      await post(`/api/topics/${t.slug}/status`, { status: next })
+      load()
+    } catch (e) {
+      setMsg(`操作失败：${(e as Error).message}`)
+    } finally {
+      setStatusBusy(null)
+    }
+  }
 
   const upload = async (files: FileList | File[]) => {
     const fd = new FormData()
@@ -82,22 +98,40 @@ export default function Library() {
             <Inbox className="h-4 w-4" /> 收件箱（待导入 {data.inbox.length}）
           </h2>
           <ul className="mt-3 flex flex-col gap-2">
-            {data.inbox.map((f) => (
-              <li key={fname(f)} className="card bg-base-100 p-4 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{fname(f)}</div>
-                    <div className="text-xs opacity-50">
-                      {fmtSize(fsize(f))} · {fmtDate(f.mtime ?? f.Mtime)}
+            {data.inbox.map((f) => {
+              const name = fname(f)
+              const slug = importTopic[name] ?? ''
+              const cmd = `/study:import ${name}${slug ? ` ${slug}` : ''}`
+              return (
+                <li key={name} className="card bg-base-100 p-4 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{name}</div>
+                      <div className="text-xs opacity-50">
+                        {fmtSize(fsize(f))} · {fmtDate(f.mtime ?? f.Mtime)}
+                      </div>
                     </div>
+                    <select
+                      className="select select-bordered select-xs max-w-32"
+                      value={slug}
+                      onChange={(e) => setImportTopic((m) => ({ ...m, [name]: e.target.value }))}
+                      title="选择导入到哪个主题"
+                    >
+                      <option value="">新主题</option>
+                      {topics
+                        .filter((t) => t.status !== 'paused')
+                        .map((t) => (
+                          <option key={t.slug} value={t.slug}>
+                            {t.name || t.slug}
+                          </option>
+                        ))}
+                    </select>
+                    <code className="hidden rounded-lg bg-base-200 px-2.5 py-1.5 text-xs sm:block">{cmd}</code>
+                    <CopyButton text={cmd} label="复制命令" />
                   </div>
-                  <code className="hidden rounded-lg bg-base-200 px-2.5 py-1.5 text-xs sm:block">
-                    /study:import {fname(f)}
-                  </code>
-                  <CopyButton text={`/study:import ${fname(f)}`} label="复制命令" />
-                </div>
-              </li>
-            ))}
+                </li>
+              )
+            })}
           </ul>
           <p className="mt-2 text-xs opacity-50">
             在仓库根目录打开 ZCode 执行上面的命令；其他工具去「工作流」页复制对应 prompt。
@@ -111,17 +145,32 @@ export default function Library() {
             <FolderTree className="h-4 w-4" /> 学习主题（{topics.length}）
           </h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            {topics.map((t) => (
-              <div key={t.slug} className="card bg-base-100 p-4 shadow-sm">
-                <div className="text-sm font-semibold">{t.name || t.slug}</div>
-                <div className="mt-0.5 font-mono text-[11px] opacity-45">{t.slug}</div>
-                {t.goal && <div className="mt-2 text-xs opacity-70">🎯 {t.goal}</div>}
-                <div className="mt-3 flex gap-2 text-xs">
-                  <span className="badge badge-ghost">{t.notes ?? 0} 笔记</span>
-                  <span className="badge badge-ghost">{t.cards ?? 0} 卡片</span>
+            {topics.map((t) => {
+              const paused = t.status === 'paused'
+              return (
+                <div key={t.slug} className={`card relative bg-base-100 p-4 shadow-sm ${paused ? 'opacity-60' : ''}`}>
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm font-semibold">{t.name || t.slug}</div>
+                    {paused && <span className="badge badge-warning badge-xs">已搁置</span>}
+                  </div>
+                  <div className="mt-0.5 font-mono text-[11px] opacity-45">{t.slug}</div>
+                  {t.goal && <div className="mt-2 text-xs opacity-70">🎯 {t.goal}</div>}
+                  <div className="mt-3 flex gap-2 text-xs">
+                    <span className="badge badge-ghost">{t.notes ?? 0} 笔记</span>
+                    <span className="badge badge-ghost">{t.cards ?? 0} 卡片</span>
+                  </div>
+                  <button
+                    className="btn btn-ghost btn-xs absolute right-2 bottom-2 gap-1"
+                    onClick={() => toggleTopicStatus(t)}
+                    disabled={statusBusy === t.slug}
+                    title={paused ? '恢复该主题，重新进入学习/复习队列' : '搁置该主题，暂时退出学习/复习队列'}
+                  >
+                    {paused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+                    {paused ? '恢复' : '搁置'}
+                  </button>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </section>
       )}

@@ -54,6 +54,7 @@ export interface Topic {
   notes?: number
   cards?: number
   description?: string
+  status?: string
 }
 
 export interface NoteListItem {

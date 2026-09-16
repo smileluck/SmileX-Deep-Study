@@ -3,6 +3,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -30,11 +31,11 @@ type validateResp struct {
 }
 
 var sessionTypes = map[string]bool{
-	"tutor": true, "feynman": true, "quiz": true, "diagnose": true, "import": true, "plan": true,
+	"tutor": true, "feynman": true, "quiz": true, "diagnose": true, "import": true, "plan": true, "merge": true,
 }
 
 var evidenceKinds = map[string]bool{
-	"quiz": true, "review": true, "feynman": true, "diagnose": true, "import": true,
+	"quiz": true, "review": true, "feynman": true, "diagnose": true, "import": true, "merge": true,
 }
 
 func isDate(s string) bool {
@@ -45,7 +46,41 @@ func isDate(s string) bool {
 func (a *API) Validate(c *gin.Context) {
 	errs := []validationIssue{}
 	warns := []validationIssue{}
-	checked := map[string]int{"cards": 0, "notes": 0, "sessions": 0, "mastery_topics": 0, "materials": 0, "plans": 0}
+	checked := map[string]int{"cards": 0, "notes": 0, "sessions": 0, "mastery_topics": 0, "materials": 0, "plans": 0, "manifests": 0}
+
+	// ---- 主题 manifest ----
+	if entries, err := os.ReadDir(a.Store.TopicsDir()); err == nil {
+		for _, e := range entries {
+			if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+				continue
+			}
+			slug := e.Name()
+			rel := "topics/" + slug + "/manifest.json"
+			raw, err := os.ReadFile(filepath.Join(a.Store.TopicsDir(), slug, "manifest.json"))
+			if err != nil {
+				continue
+			}
+			checked["manifests"]++
+			var m map[string]any
+			if err := json.Unmarshal(raw, &m); err != nil {
+				errs = append(errs, validationIssue{File: rel, Kind: "manifest",
+					Issues: []string{"解析失败: " + err.Error()}})
+				continue
+			}
+			var issues []string
+			if v, _ := m["slug"].(string); v != slug {
+				issues = append(issues, "slug 字段与目录名不一致")
+			}
+			if s, ok := m["status"]; ok {
+				if v, _ := s.(string); v != "active" && v != "paused" {
+					issues = append(issues, fmt.Sprintf("status 非法: %v（合法 active/paused，缺省视为 active）", s))
+				}
+			}
+			if len(issues) > 0 {
+				errs = append(errs, validationIssue{File: rel, Kind: "manifest", Issues: issues})
+			}
+		}
+	}
 
 	// ---- 卡片 ----
 	if ids, err := a.Store.CardIDs(); err == nil {

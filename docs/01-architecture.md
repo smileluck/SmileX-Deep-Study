@@ -135,15 +135,17 @@ level 0-5（0=未接触 … 5=能讲授）。每次变更必须附 evidence（ki
 
 ```json
 {"slug": "spaced-repetition", "name": "间隔重复", "goal": "吃透 FSRS 并能给人讲明白",
- "created": "2026-09-13", "description": "…"}
+ "created": "2026-09-13", "description": "…", "status": "active"}
 ```
+
+`status` 为可选字段（`active | paused`，缺省视为 active）：paused 主题停止学习与复习——卡片不进入学习/复习队列与到期统计（由服务端过滤），笔记/卡片/历史记录与 mastery 一律不动；Web UI 资料库页或 agent 直接改该字段即可搁置/恢复。
 
 ### 计划（W7 产出，agent 读写，UI 只读）
 
 - 主题计划 `data/topics/<slug>/plan.md`：frontmatter `topic`（= slug）/ `goal` / `horizon` / `created` / `updated` / `status`（active|done|paused）；正文「## 里程碑」用 `- [ ]`/`- [x]` 清单，每个里程碑绑定可检验完成标准；「## 周计划」按间隔效应与交错练习排布。
 - 全局计划 `data/plans/master.md`：frontmatter `id: master` / `title` / `created` / `updated`；正文含主题优先级（引用 mastery/diagnose 证据）、每周节奏、主题计划索引。全局计划不维护里程碑——「计划」页的总进度由各主题计划的 `- [x]` 聚合得出。
 
-## 四、七条工作流与职责边界
+## 四、八条工作流与职责边界
 
 | # | 工作流 | 执行者 | 输入 → 输出 |
 |---|---|---|---|
@@ -154,6 +156,7 @@ level 0-5（0=未接触 … 5=能讲授）。每次变更必须附 evidence（ki
 | W5 自测 | harness `/study:quiz` | harness | 笔记 → 新题（不复用卡片）→ 批改 → mastery 回写 |
 | W6 诊断 | harness `/study:diagnose` | harness | mastery+日志+会话 → 弱点报告 → 定向练习卡 |
 | W7 规划 | harness `/study:plan` | harness | 目标+mastery/诊断证据 → plans/master.md + topics/<slug>/plan.md（里程碑+周计划） |
+| W8 合并 | harness `/study:merge` | harness | 多个 topic → 幸存 topic：迁移笔记/卡片/材料归属与 order 重排 → mastery 与计划合并 → 删除源主题目录 |
 
 ## 五、Go 后端 API
 

@@ -413,6 +413,42 @@ func (s *Store) GetTopicPlan(slug string) (*Plan, error) {
 	return &Plan{Slug: slug, Path: path, FM: doc.Map(), Body: doc.Body}, nil
 }
 
+// SetTopicStatus 写 manifest.json 的 status 字段（active/paused，由调用方校验取值）。
+func (s *Store) SetTopicStatus(slug, status string) error {
+	if slug == "" || strings.ContainsRune(slug, '/') {
+		return fmt.Errorf("非法主题 slug")
+	}
+	path := filepath.Join(s.TopicsDir(), slug, "manifest.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("主题 %s 的 manifest 不存在或读取失败: %w", slug, err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return fmt.Errorf("主题 %s 的 manifest 解析失败: %w", slug, err)
+	}
+	m["status"] = status
+	b, _ := json.MarshalIndent(m, "", "  ")
+	return writeAtomic(path, append(b, '\n'))
+}
+
+// PausedTopics 返回 status=="paused" 的主题 slug 集合；读取出错时降级为空集合（不过滤）。
+func (s *Store) PausedTopics() map[string]bool {
+	paused := map[string]bool{}
+	topics, err := s.ListTopics()
+	if err != nil {
+		return paused
+	}
+	for _, t := range topics {
+		if status, _ := t["status"].(string); status == "paused" {
+			if slug, _ := t["slug"].(string); slug != "" {
+				paused[slug] = true
+			}
+		}
+	}
+	return paused
+}
+
 // ---------- 材料 ----------
 
 type MaterialMeta struct {

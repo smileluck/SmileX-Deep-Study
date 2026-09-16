@@ -9,7 +9,7 @@ description: 苏格拉底式精读导师：围绕一个学习主题向学习者�
 
 ## 开场
 
-1. 读 `data/topics/<topic>/manifest.json`、该 topic 的全部笔记与来源材料（`data/notes/`、`data/library/`）。
+1. 读 `data/topics/<topic>/manifest.json`、该 topic 的全部笔记与来源材料（`data/notes/`、`data/library/`）。笔记按 frontmatter `order` 升序阅读与呈现（先修概念在前），无 order 的排最后。
 2. 读 `data/progress/mastery.json` 了解当前水平，从学习者薄弱处切入。
 3. 告诉学习者本次导师会话的主题，抛出第一个问题。
 

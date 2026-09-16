@@ -37,6 +37,7 @@ func Register(r *gin.Engine, st *store.Store) {
 		api.GET("/materials", a.GetMaterials)
 
 		api.GET("/topics", a.GetTopics)
+		api.POST("/topics/:slug/status", a.SetTopicStatus)
 
 		api.GET("/review/queue", a.ReviewQueue)
 		api.POST("/review/grade", a.ReviewGrade)
@@ -197,6 +198,28 @@ func (a *API) GetTopics(c *gin.Context) {
 	c.JSON(200, topics)
 }
 
+type topicStatusReq struct {
+	Status string `json:"status" binding:"required"`
+}
+
+func (a *API) SetTopicStatus(c *gin.Context) {
+	var req topicStatusReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		errJSON(c, 400, err)
+		return
+	}
+	if req.Status != "active" && req.Status != "paused" {
+		errJSON(c, 400, fmt.Errorf("status 只接受 active/paused: %s", req.Status))
+		return
+	}
+	slug := c.Param("slug")
+	if err := a.Store.SetTopicStatus(slug, req.Status); err != nil {
+		errJSON(c, 500, err)
+		return
+	}
+	c.JSON(200, gin.H{"ok": true, "slug": slug, "status": req.Status})
+}
+
 // ---------- 复习 ----------
 
 func cardDue(card store.Card) time.Time {
@@ -226,9 +249,13 @@ func (a *API) ReviewQueue(c *gin.Context) {
 	}
 	topic := c.Query("topic")
 	mode := c.Query("mode") // learn=只新卡 / review=只已学到期卡 / 其他=混合（兼容旧调用）
+	paused := a.Store.PausedTopics()
 	now := time.Now()
 	var due []store.Card
 	for _, card := range cards {
+		if paused[str(card.FM["topic"])] {
+			continue
+		}
 		if topic != "" && str(card.FM["topic"]) != topic {
 			continue
 		}
@@ -599,6 +626,7 @@ func (a *API) GetMastery(c *gin.Context) {
 	cards, _ := a.Store.ListCards()
 	log, _ := a.Store.ReadReviewLog()
 	voided := voidedSet(log)
+	paused := a.Store.PausedTopics()
 	cardTopic := map[string]string{}
 	perTopic := map[string]map[string]any{}
 	ensure := func(t string) map[string]any {
@@ -611,6 +639,9 @@ func (a *API) GetMastery(c *gin.Context) {
 	for _, card := range cards {
 		t := str(card.FM["topic"])
 		cardTopic[card.ID] = t
+		if paused[t] {
+			continue
+		}
 		m := ensure(t)
 		m["cards"] = m["cards"].(int) + 1
 		if isNewCard(card) {
@@ -628,6 +659,9 @@ func (a *API) GetMastery(c *gin.Context) {
 			continue
 		}
 		t := cardTopic[e.Card]
+		if paused[t] {
+			continue
+		}
 		m := ensure(t)
 		m["reviews"] = m["reviews"].(int) + 1
 		if e.Rating == 1 {
@@ -651,6 +685,7 @@ func (a *API) GetStats(c *gin.Context) {
 	mastery, _ := a.Store.ReadMastery()
 	sessions, _ := a.Store.ListSessions()
 	voided := voidedSet(log)
+	paused := a.Store.PausedTopics()
 	now := time.Now()
 	today := now.Format("2006-01-02")
 
@@ -658,6 +693,9 @@ func (a *API) GetStats(c *gin.Context) {
 	dayCount := map[string]int{}
 	dayLearned := map[string]int{}
 	for _, card := range cards {
+		if paused[str(card.FM["topic"])] {
+			continue
+		}
 		if isNewCard(card) {
 			newCards++
 			continue
