@@ -58,7 +58,7 @@ func main() {
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
 
-	api.Register(r, st)
+	api.Register(r, st, version)
 
 	dist, err := fs.Sub(web.DistFS, "dist")
 	if err != nil {

@@ -30,7 +30,9 @@ Dev mode: `./deep-study` (port 5574) + `cd web && pnpm dev` (port 5573, `/api` p
 
 Customization: `./deep-study -addr 0.0.0.0:5574 -data /path/to/data`
 
-CI & Release (GitHub Actions): pushes/PRs to `main` run build + tests + a boot smoke test (`.github/workflows/ci.yml`); pushing a `v*` tag cross-compiles Linux/macOS/Windows × amd64/arm64 archives and publishes them to a GitHub Release with the tag injected as the binary version (`.github/workflows/release.yml`, check with `./deep-study -version`). To cut a release: `git tag v0.1.0 && git push origin v0.1.0`.
+CI & Release (GitHub Actions): pushes/PRs to `main` run build + tests + a boot smoke test (`.github/workflows/ci.yml`); pushing a `v*` tag cross-compiles Linux/macOS/Windows × amd64/arm64 archives and publishes them to a GitHub Release with the tag injected as the binary version plus per-archive `.sha256` files (`.github/workflows/release.yml`, check with `./deep-study -version`). To cut a release: `git tag v0.1.0 && git push origin v0.1.0`.
+
+Self-update: release builds can update themselves from GitHub Releases — the sidebar footer shows the current version and offers one-click update when a newer tag exists (`GET /api/update/check`, `POST /api/update/apply`). Downloads are SHA256-verified against the release's `.sha256` files and swapped atomically (old binary backed up as `deep-study.old`, rollback on failure); restart the process to run the new version. If github.com is unreachable, mirrors are tried automatically; set `DEEP_STUDY_UPDATE_MIRROR` to override the built-in mirror list. Dev builds (`-version` prints `dev`) skip self-update.
 
 ## Six Workflows
 

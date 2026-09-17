@@ -23,17 +23,20 @@ import (
 var workflowsJSON []byte
 
 type API struct {
-	Store *store.Store
+	Store   *store.Store
+	Version string
 }
 
-func Register(r *gin.Engine, st *store.Store) {
-	a := &API{Store: st}
+func Register(r *gin.Engine, st *store.Store, version string) {
+	a := &API{Store: st, Version: version}
 	r.Use(cors())
 	api := r.Group("/api")
 	{
 		api.GET("/health", func(c *gin.Context) { c.JSON(200, gin.H{"ok": true}) })
 		api.GET("/validate", a.Validate)
 		api.GET("/workflows", a.GetWorkflows)
+		api.GET("/update/check", a.UpdateCheck)
+		api.POST("/update/apply", a.UpdateApply)
 
 		api.POST("/materials/upload", a.UploadMaterials)
 		api.GET("/materials", a.GetMaterials)

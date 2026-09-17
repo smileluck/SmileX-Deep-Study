@@ -86,6 +86,17 @@ jobs:
           fi
           ls -lh release/
 
+      - name: 生成校验文件（自更新下载校验用）
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          pkg="deep-study-${GITHUB_REF_NAME}-${GOOS}-${GOARCH}"
+          cd release
+          if [ "$GOOS" = windows ]; then ext=zip; else ext=tar.gz; fi
+          shasum -a 256 "${pkg}.${ext}" > "${pkg}.${ext}.sha256"
+          cat "${pkg}.${ext}.sha256"
+
       - name: 上传到 GitHub Release
         uses: softprops/action-gh-release@v2
         with:

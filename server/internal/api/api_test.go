@@ -26,7 +26,7 @@ func setup(t *testing.T) (*gin.Engine, *store.Store) {
 		t.Fatal(err)
 	}
 	r := gin.New()
-	Register(r, st)
+	Register(r, st, "dev")
 	return r, st
 }
 

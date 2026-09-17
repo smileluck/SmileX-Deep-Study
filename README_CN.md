@@ -29,7 +29,9 @@ go build -o deep-study ./server/cmd/server
 
 自定义：`./deep-study -addr 0.0.0.0:5574 -data /path/to/data`
 
-CI 与发版（GitHub Actions）：推送/PR 到 `main` 自动跑构建 + 测试 + 启动冒烟（`.github/workflows/ci.yml`）；推送 `v*` 标签会交叉编译 Linux/macOS/Windows × amd64/arm64 六个平台的压缩包并自动发布到 GitHub Release，标签名会注入为二进制版本号（`.github/workflows/release.yml`，用 `./deep-study -version` 查看）。发版方式：`git tag v0.1.0 && git push origin v0.1.0`。
+CI 与发版（GitHub Actions）：推送/PR 到 `main` 自动跑构建 + 测试 + 启动冒烟（`.github/workflows/ci.yml`）；推送 `v*` 标签会交叉编译 Linux/macOS/Windows × amd64/arm64 六个平台的压缩包并自动发布到 GitHub Release，标签名会注入为二进制版本号，并随附每个压缩包的 `.sha256` 校验文件（`.github/workflows/release.yml`，用 `./deep-study -version` 查看）。发版方式：`git tag v0.1.0 && git push origin v0.1.0`。
+
+自更新：正式版本可基于 GitHub Releases 一键更新——侧边栏底部显示当前版本，检测到新标签时提供「立即更新」（接口：`GET /api/update/check`、`POST /api/update/apply`）。下载强制 SHA256 校验（对照 release 的 `.sha256` 文件），替换为原子操作（旧二进制备份为 `deep-study.old`，失败自动回滚），更新后重启进程生效。github.com 连不通时自动尝试镜像下载，也可用环境变量 `DEEP_STUDY_UPDATE_MIRROR` 指定自定义镜像。开发版（`-version` 输出 `dev`）不参与自更新。
 
 ## 八条工作流
 

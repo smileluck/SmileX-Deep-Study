@@ -13,6 +13,7 @@ import {
   Target,
 } from 'lucide-react'
 import { useStats } from './useStats'
+import UpdateBadge from './components/UpdateBadge'
 import Dashboard from './pages/Dashboard'
 import Library from './pages/Library'
 import Notes from './pages/Notes'
@@ -78,6 +79,9 @@ export default function App() {
           ))}
         </nav>
         <div className="mt-auto p-4 text-[11px] leading-relaxed opacity-50">
+          <div className="mb-2 opacity-100">
+            <UpdateBadge />
+          </div>
           <div className="flex items-center gap-1.5">
             <BookOpenText className="h-3.5 w-3.5" />
             文件即数据库 · AGENTS.md 即契约

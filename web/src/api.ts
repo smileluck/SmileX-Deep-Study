@@ -169,3 +169,25 @@ export function fmtDate(d?: string): string {
   if (!d) return ''
   return d.slice(0, 10)
 }
+
+// ---------- 自更新 ----------
+
+export interface UpdateCheck {
+  current: string
+  latest?: string
+  has_update: boolean
+  notes?: string
+  reason?: string
+  error?: string
+  release_url?: string
+  manual_url: string
+}
+
+export interface UpdateApplyResult {
+  ok: boolean
+  latest?: string
+  message?: string
+  error?: string
+  need_restart?: boolean
+  manual_url?: string
+}
