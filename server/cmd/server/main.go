@@ -23,11 +23,20 @@ import (
 	web "smilex-deep-study/web"
 )
 
+// version 由发布流水线通过 -ldflags "-X main.version=<tag>" 注入，本地构建为 dev。
+var version = "dev"
+
 func main() {
 	addr := flag.String("addr", "127.0.0.1:5574", "监听地址")
 	dataDir := flag.String("data", "data", "数据目录（相对工作目录或绝对路径）")
 	withScaffold := flag.Bool("scaffold", true, "启动时铺出 harness 工作区文件（AGENTS.md/.agents/.codebuddy/roles/prompts，只建缺失不覆盖）")
+	showVersion := flag.Bool("version", false, "打印版本号并退出")
 	flag.Parse()
+
+	if *showVersion {
+		println(version)
+		return
+	}
 
 	data, workspace := resolveDirs(*dataDir, flagPassed("data"))
 

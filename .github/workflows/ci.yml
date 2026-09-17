@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: 构建 + 测试 + 冒烟
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: 一键构建（同步适配器 + 前端 + 内嵌二进制）
+        run: make build
+
+      - name: Go 测试
+        run: go test ./...
+
+      - name: 冒烟：二进制可启动且校验接口可用
+        run: |
+          ./deep-study -addr 127.0.0.1:15574 -data /tmp/ds-ci-data &
+          for i in $(seq 1 20); do
+            curl -sf http://127.0.0.1:15574/api/validate && break
+            sleep 1
+          done
+          kill %1

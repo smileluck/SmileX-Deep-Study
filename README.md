@@ -30,6 +30,8 @@ Dev mode: `./deep-study` (port 5574) + `cd web && pnpm dev` (port 5573, `/api` p
 
 Customization: `./deep-study -addr 0.0.0.0:5574 -data /path/to/data`
 
+CI & Release (GitHub Actions): pushes/PRs to `main` run build + tests + a boot smoke test (`.github/workflows/ci.yml`); pushing a `v*` tag cross-compiles Linux/macOS/Windows × amd64/arm64 archives and publishes them to a GitHub Release with the tag injected as the binary version (`.github/workflows/release.yml`, check with `./deep-study -version`). To cut a release: `git tag v0.1.0 && git push origin v0.1.0`.
+
 ## Six Workflows
 
 | Workflow                   | Executed by         | Usage                                                                                                |

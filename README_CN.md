@@ -29,6 +29,8 @@ go build -o deep-study ./server/cmd/server
 
 自定义：`./deep-study -addr 0.0.0.0:5574 -data /path/to/data`
 
+CI 与发版（GitHub Actions）：推送/PR 到 `main` 自动跑构建 + 测试 + 启动冒烟（`.github/workflows/ci.yml`）；推送 `v*` 标签会交叉编译 Linux/macOS/Windows × amd64/arm64 六个平台的压缩包并自动发布到 GitHub Release，标签名会注入为二进制版本号（`.github/workflows/release.yml`，用 `./deep-study -version` 查看）。发版方式：`git tag v0.1.0 && git push origin v0.1.0`。
+
 ## 八条工作流
 
 | 工作流 | 执行者 | 用法 |
