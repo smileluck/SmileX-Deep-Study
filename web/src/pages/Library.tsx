@@ -39,9 +39,20 @@ export default function Library() {
     }
   }
 
+  // MAX_UPLOAD_MB 与服务端 maxUploadBytes（1GB）保持一致。
+  // 超限文件必须在前端拦下：直接发送的话，服务端预检 413 时请求体仍在传输，
+  // 连接会被 RST，fetch 只报 "Failed to fetch"，用户看不到真实原因。
+  const MAX_UPLOAD_MB = 1024
+
   const upload = async (files: FileList | File[]) => {
+    const list = [...files]
+    const tooBig = list.filter((f) => f.size > MAX_UPLOAD_MB * 1024 * 1024)
+    if (tooBig.length) {
+      setMsg({ kind: 'err', text: `以下文件超过 1GB 上限：${tooBig.map((f) => `${f.name}（${(f.size / 1024 / 1024 / 1024).toFixed(2)}GB）`).join('、')}` })
+      return
+    }
     const fd = new FormData()
-    for (const f of files) fd.append('files', f)
+    for (const f of list) fd.append('files', f)
     setUploading(true)
     setMsg(null)
     try {
@@ -52,7 +63,8 @@ export default function Library() {
       setMsg({ kind: 'ok', text: `已上传 ${j?.saved?.length ?? 0} 个文件到 inbox，去 harness 执行导入命令即可` })
       load()
     } catch (e) {
-      setMsg({ kind: 'err', text: `上传失败：${(e as Error).message}` })
+      const m = (e as Error).message
+      setMsg({ kind: 'err', text: m === 'Failed to fetch' ? '上传失败：连接中断（文件过大或网络异常），请检查文件大小后重试' : `上传失败：${m}` })
     } finally {
       setUploading(false)
     }

@@ -131,11 +131,20 @@ var uploadExts = map[string]bool{
 	".pdf": true, ".docx": true, ".md": true, ".epub": true, ".txt": true,
 }
 
+// maxUploadBytes 上传总大小上限。超过时必须先靠 Content-Length 预检返回 413：
+// 若读到一半才靠 MaxBytesReader 拒绝，服务端在请求体未发完时提前响应，
+// 连接被 RST，浏览器 fetch 只会报 "Failed to fetch" 而看不到状态码。
+const maxUploadBytes = 1 << 30 // 1GB
+
 func (a *API) UploadMaterials(c *gin.Context) {
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 50<<20) // 50MB 上限
+	if c.Request.ContentLength > maxUploadBytes {
+		errJSON(c, 413, fmt.Errorf("文件总大小超过上限（%dGB）", maxUploadBytes>>30))
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxUploadBytes)
 	form, err := c.MultipartForm()
 	if err != nil {
-		errJSON(c, 400, fmt.Errorf("需要 multipart form: %w", err))
+		errJSON(c, 400, fmt.Errorf("需要 multipart form（或文件超过 %dGB 上限）: %v", maxUploadBytes>>30, err))
 		return
 	}
 	files := form.File["files"]
