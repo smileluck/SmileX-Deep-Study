@@ -12,7 +12,7 @@ description: 把 data/inbox/ 中的学习材料或网页 URL 导入系统：提�
 
 然后按以下步骤执行：
 
-1. **解析材料**：读取 `data/inbox/` 中用户指定的文件。PDF/DOCX/EPUB 等用你可用的解析能力提取文本；提取失败就按角色纪律如实报告并中止。**若参数是 http(s) URL**：用你自带的网页抓取能力（如 FetchURL）抓取并理解正文（避开导航/广告等噪声），将正文整理为 markdown 写入 `data/inbox/<kebab-标题>.md` 作为归档原件，随后按普通文件流程继续；抓取失败（登录墙、纯 JS 渲染、反爬）或你没有抓取能力时如实报告并中止，不许编造内容。
+1. **解析材料**：读取 `data/inbox/` 中用户指定的文件。**PDF 优先调服务端接口提取文本层**：`curl -s "http://127.0.0.1:5574/api/materials/extract-text?name=<文件名>"`（随二进制分发，零安装；加密 PDF 自动尝试空密码解密）。返回 `text` 为空/近空说明是**扫描件**：本机有 poppler 就 `pdftoppm -png -r 150` 转图后逐页视觉阅读，量大改用本地 OCR 小模型（如腾讯 HunyuanOCR），都没有就按角色纪律如实报告并中止。DOCX/EPUB 等用你可用的解析能力提取文本；提取失败就按角色纪律如实报告并中止。**若参数是 http(s) URL**：用你自带的网页抓取能力（如 FetchURL）抓取并理解正文（避开导航/广告等噪声），将正文整理为 markdown 写入 `data/inbox/<kebab-标题>.md` 作为归档原件，随后按普通文件流程继续；抓取失败（登录墙、纯 JS 渲染、反爬）或你没有抓取能力时如实报告并中止，不许编造内容。
 2. **确定主题**：用户给了 topic-slug 就用；否则根据材料内容起一个 kebab-case slug，在 `data/topics/<slug>/manifest.json` 建主题（字段：slug/name/goal/created/description，goal 可先留空问用户）。**slug 已存在则复用 manifest**：不重建、不改 goal（description 如需补充可更新），多个材料可陆续导入同一主题。
 3. **归档材料**：把文件移动到 `data/library/`，重命名为 `<materials.json 当前最大 id + 1>-<原文件名>`；在 `data/library/materials.json` 数组**追加** `{id, original_name, stored_name, topic, status: "imported", imported_at: <今天>}`。网页导入时 `original_name` 记原始 URL，`stored_name` 为转存的 md 文件名。
 4. **写原子笔记**：通读材料后先梳理概念的学习依赖顺序（先修概念在前），按该顺序为每篇笔记分配 `order`（frontmatter 字段，主题内从 1 递增；追加导入已有主题时默认从该主题现有 max(order) 续排）。为材料中每个值得学的独立概念写一篇 `data/notes/<kebab-id>.md`（按角色纪律：自己的话重组、原子化、带 links）。**顺序调整**：若追加导入的新概念是某些现有笔记的先修（更基础），不要机械续排在末尾——将其插入对应位置，受影响现有笔记的 `order` 顺延重排，保持主题内唯一递增；`order` 只是排序键，改动不影响卡片与复习状态；重排结果记入会话日志。

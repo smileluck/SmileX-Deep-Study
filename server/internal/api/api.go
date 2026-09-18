@@ -40,6 +40,7 @@ func Register(r *gin.Engine, st *store.Store, version string) {
 
 		api.POST("/materials/upload", a.UploadMaterials)
 		api.GET("/materials", a.GetMaterials)
+		api.GET("/materials/extract-text", a.ExtractText)
 
 		api.GET("/topics", a.GetTopics)
 		api.POST("/topics/:slug/status", a.SetTopicStatus)

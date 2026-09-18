@@ -182,7 +182,7 @@ updated: 2026-09-15
 
 **角色**：`roles/librarian.md`（导入员）。
 
-1. 读取 `data/inbox/` 中指定文件（PDF/DOCX 等用你可用的解析技能提取文本；无法解析时如实报告）。**若参数是 http(s) URL**：用你自带的网页抓取能力（如 FetchURL）抓取并理解正文（避开导航/广告等噪声），将正文整理为 markdown 写入 `data/inbox/<kebab-标题>.md` 作为归档原件，随后按普通文件流程继续；抓取失败（登录墙、纯 JS 渲染、反爬）或你没有抓取能力时如实报告并中止，不许编造内容。
+1. 读取 `data/inbox/` 中指定文件。**PDF 优先调服务端接口提取文本层**：`curl -s "http://127.0.0.1:5574/api/materials/extract-text?name=<文件名>"`（纯 Go 实现随二进制分发，零安装；加密 PDF 自动尝试空密码解密）。返回 `text` 为空/近空（`chars` 很小）说明是**扫描件**：此时若本机有 poppler（`pdftoppm -png -r 150 文件 页前缀`）则转图后逐页视觉阅读，量大时改用本地 OCR 小模型（如腾讯 HunyuanOCR）；都没有就如实报告并中止。DOCX/EPUB 等用你可用的解析能力提取文本；无法解析时如实报告。**若参数是 http(s) URL**：用你自带的网页抓取能力（如 FetchURL）抓取并理解正文（避开导航/广告等噪声），将正文整理为 markdown 写入 `data/inbox/<kebab-标题>.md` 作为归档原件，随后按普通文件流程继续；抓取失败（登录墙、纯 JS 渲染、反爬）或你没有抓取能力时如实报告并中止，不许编造内容。
 2. 确定或创建 topic（`data/topics/<slug>/manifest.json`，字段：slug/name/goal/created/description/status，`status: active|paused` 缺省 active）。**slug 已存在时复用 manifest**：不重建、不改 goal（description 如需补充可更新）；笔记 `order` 默认从该主题现有 max(order) 续排（新材料含先修概念时按依赖关系插入重排，见步骤 4），materials.json 正常追加——多个材料可陆续导入同一主题。
 3. 将材料移动到 `data/library/`，重命名 `<序号>-<原名>`，并在 `data/library/materials.json` 数组**追加**一条 `{id, original_name, stored_name, topic, status: "imported", imported_at}`。网页导入时 `original_name` 记原始 URL，`stored_name` 为转存的 md 文件名。
 4. 产出原子笔记（每个独立概念一篇，含 frontmatter 与 links）。**追加导入已有主题时先做概念去重**：与该主题现有笔记逐一比对——已覆盖的概念不新建笔记，有增量（更清晰的阐述、新例子、修正）就合并进现有笔记正文（`id`/`order`/`created`/`source` 不动，可按需补 `links`）；部分重叠则新笔记与已有笔记 `links` 互链。**顺序调整**：新笔记默认续排在 max(order) 之后；若某新概念是现有笔记的先修（更基础），将其插入对应位置，受影响现有笔记的 `order` 顺延重排（保持主题内唯一递增——`order` 只是排序键，改动不影响卡片与复习状态）。

@@ -163,6 +163,7 @@ level 0-5（0=未接触 … 5=能讲授）。每次变更必须附 evidence（ki
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | POST | /api/materials/upload | multipart 上传 → data/inbox/ |
+| GET  | /api/materials/extract-text?name=<inbox 文件名> | PDF 文本层提取（纯 Go，随包零安装；加密 PDF 自动尝试空密码解密）；text 为空说明是扫描件，走 agent 视觉/OCR 降级 |
 | GET  | /api/validate | 数据契约硬校验：扫描 cards/notes/sessions/mastery/materials，返回 errors（schema/fsrs 块/日期/证据链违规）与 warnings（空正文）；agent 工作流收尾必须清零 errors |
 | GET  | /api/materials | inbox + library 列表（含 materials.json） |
 | GET  | /api/topics | 主题列表（含卡片/笔记计数） |
