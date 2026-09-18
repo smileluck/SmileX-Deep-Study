@@ -1,6 +1,6 @@
 ---
 name: study-import
-description: 把 data/inbox/ 中的学习材料导入系统：提取内容、建主题、写原子笔记、起草 FSRS 复习卡片、归档材料并写会话日志。用户上传材料后说"导入"时使用。
+description: 把 data/inbox/ 中的学习材料或网页 URL 导入系统：提取内容、建主题、写原子笔记、起草 FSRS 复习卡片、归档材料并写会话日志。用户上传材料或给出网页 URL 后说"导入"时使用。
 ---
 
 # 学习材料导入（W1）
@@ -12,9 +12,9 @@ description: 把 data/inbox/ 中的学习材料导入系统：提取内容、建
 
 然后按以下步骤执行：
 
-1. **解析材料**：读取 `data/inbox/` 中用户指定的文件。PDF/DOCX/EPUB 等用你可用的解析能力提取文本；提取失败就按角色纪律如实报告并中止。
+1. **解析材料**：读取 `data/inbox/` 中用户指定的文件。PDF/DOCX/EPUB 等用你可用的解析能力提取文本；提取失败就按角色纪律如实报告并中止。**若参数是 http(s) URL**：用你自带的网页抓取能力（如 FetchURL）抓取并理解正文（避开导航/广告等噪声），将正文整理为 markdown 写入 `data/inbox/<kebab-标题>.md` 作为归档原件，随后按普通文件流程继续；抓取失败（登录墙、纯 JS 渲染、反爬）或你没有抓取能力时如实报告并中止，不许编造内容。
 2. **确定主题**：用户给了 topic-slug 就用；否则根据材料内容起一个 kebab-case slug，在 `data/topics/<slug>/manifest.json` 建主题（字段：slug/name/goal/created/description，goal 可先留空问用户）。**slug 已存在则复用 manifest**：不重建、不改 goal（description 如需补充可更新），多个材料可陆续导入同一主题。
-3. **归档材料**：把文件移动到 `data/library/`，重命名为 `<materials.json 当前最大 id + 1>-<原文件名>`；在 `data/library/materials.json` 数组**追加** `{id, original_name, stored_name, topic, status: "imported", imported_at: <今天>}`。
+3. **归档材料**：把文件移动到 `data/library/`，重命名为 `<materials.json 当前最大 id + 1>-<原文件名>`；在 `data/library/materials.json` 数组**追加** `{id, original_name, stored_name, topic, status: "imported", imported_at: <今天>}`。网页导入时 `original_name` 记原始 URL，`stored_name` 为转存的 md 文件名。
 4. **写原子笔记**：通读材料后先梳理概念的学习依赖顺序（先修概念在前），按该顺序为每篇笔记分配 `order`（frontmatter 字段，主题内从 1 递增；追加导入已有主题时默认从该主题现有 max(order) 续排）。为材料中每个值得学的独立概念写一篇 `data/notes/<kebab-id>.md`（按角色纪律：自己的话重组、原子化、带 links）。**顺序调整**：若追加导入的新概念是某些现有笔记的先修（更基础），不要机械续排在末尾——将其插入对应位置，受影响现有笔记的 `order` 顺延重排，保持主题内唯一递增；`order` 只是排序键，改动不影响卡片与复习状态；重排结果记入会话日志。
 5. **概念去重（追加导入已有主题时必做，在写笔记前执行）**：先读该主题现有全部笔记（`data/notes/` 中 `topic` 等于该 slug 的笔记，看 title 与正文要点），把材料中梳理出的概念与之一一比对：
    - **已覆盖**：现有笔记已讲清该概念 → 不新建。若新材料带来增量（更清晰的阐述、新例子、修正），把增量合并进现有笔记正文（保持原子结构与"自己的话"风格，可按需补充 `links`）；`id`/`order`/`created`/`source` 字段不动。

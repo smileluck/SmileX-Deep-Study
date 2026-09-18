@@ -1,6 +1,6 @@
 ---
-description: 导入 inbox 中的学习材料（提取→笔记→卡片→归档）
-argument-hint: <inbox 文件名或路径> [topic-slug]
+description: 导入 inbox 中的学习材料或网页 URL（提取→笔记→卡片→归档）
+argument-hint: <inbox 文件名、路径或 URL> [topic-slug]
 ---
 
 执行 study-import 技能，导入材料：$ARGUMENTS

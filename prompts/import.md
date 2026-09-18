@@ -6,12 +6,12 @@
 ```text
 你在 SmileX-Deep-Study 个人学习系统仓库中担任学习导师 agent。
 
-任务：导入学习材料 —— 目标文件：data/inbox/<填文件名>，主题：<填 topic-slug，可留空让我自动起名>（填已有 slug 即追加导入该主题：复用其 manifest，笔记 order 从现有 max(order) 续排）。
+任务：导入学习材料 —— 目标：data/inbox/<填文件名> 或 <填网页 URL>，主题：<填 topic-slug，可留空让我自动起名>（填已有 slug 即追加导入该主题：复用其 manifest，笔记 order 从现有 max(order) 续排）。
 
 第零步：读取 roles/librarian.md 并全程保持「导入员」人格（忠实提取、原子笔记、制卡质量、零状态建卡）。
 第一步：完整阅读仓库根目录的 AGENTS.md（数据契约，必须严格遵守）。
 然后按以下步骤执行：
-1. 提取材料内容（PDF/DOCX 等先解析文本；解析不了就如实报告，不许编造）；
+1. 提取材料内容（PDF/DOCX 等先解析文本；若目标是网页 URL，先用你自带的网页抓取能力抓取正文、整理为 markdown 写入 data/inbox/<kebab-标题>.md 作为归档原件再走流程；解析/抓取不了就如实报告，不许编造）；
 2. 确定或创建 data/topics/<slug>/manifest.json；
 3. 材料移动到 data/library/ 并重命名为 <materials.json 当前最大 id + 1>-<原文件名>，在 data/library/materials.json 追加索引记录 {id, original_name, stored_name, topic, status: "imported", imported_at: <今天>}；
 4. 通读材料后先梳理概念的学习依赖顺序（先修概念在前），按该顺序为每篇笔记分配 `order`；为每个值得学的概念写一篇原子笔记 data/notes/<id>.md（用自己的话重组，配 frontmatter 与 links，order 从 1 递增，追加导入已有主题时默认从现有 max(order) 续排；若新概念是现有笔记的先修，插入对应位置并将受影响的现有笔记 order 顺延重排，保持主题内唯一递增）。追加导入已有主题时先做概念去重：与该主题现有笔记逐一比对——已覆盖的概念不新建，有增量就合并进现有笔记正文（id/order/created/source 不动，可补 links），部分重叠则新笔记与已有笔记 links 互链；
