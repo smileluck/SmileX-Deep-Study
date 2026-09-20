@@ -1,5 +1,7 @@
 # ---- 构建产物 ----
 /deep-study
+/deep-study.exe
+/deep-study-*
 web/dist/
 *.test
 *.out
@@ -28,6 +30,10 @@ Thumbs.db
 
 # ---- ZCode 会话级草稿（skills/commands 是交付物，保留） ----
 .zcode/plans/
+
+# ---- WorkBuddy 会话级草稿（scratch 脚本/转写产物/记忆，非交付物） ----
+.workbuddy/
+.workbuddy-ai/
 
 # ---- 本地学习数据（个人记录，不上传） ----
 data/
