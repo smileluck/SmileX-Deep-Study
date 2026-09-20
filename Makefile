@@ -23,7 +23,15 @@ ifeq ($(GIT_BASH),)
 $(error 未找到 Git Bash：请安装 Git for Windows，或改用 Git Bash 终端运行 make)
 endif
 SHELL := $(GIT_BASH)
+BASH  := $(GIT_BASH)
 EXE := .exe
+else
+BASH  := bash
+endif
+
+# 交叉编译目标平台的后缀（与宿主 EXE 区分）
+ifeq ($(GOOS),windows)
+TARGET_EXE := .exe
 endif
 
 .PHONY: help dev build cross clean
@@ -44,14 +52,15 @@ web-build: ## 仅构建前端（web/dist）
 	cd web && $(PNPM) install --frozen-lockfile && $(PNPM) build
 
 build: web-build ## 一键打包本机平台：前端构建 + go:embed 内嵌（含 harness 工作区脚手架资产）→ ./deep-study
-	./scripts/sync-adapters.sh
-	CGO_ENABLED=0 $(GO) build -trimpath -ldflags="-s -w" -o $(BIN) ./server/cmd/server
-	@echo "打包完成：./$(BIN)  （运行后访问 http://127.0.0.1:5574；启动时自动铺出 AGENTS.md/.agents/.codebuddy 等工作区文件，非空目录自动收进 deepstudy/ 子目录，二进制留在原地）"
+	$(BASH) scripts/sync-adapters.sh
+	CGO_ENABLED=0 $(GO) build -trimpath -ldflags="-s -w" -o $(BIN)$(EXE) ./server/cmd/server
+	@: 中文提示必须放脚本里输出——Scoop 版 make 会按 GBK 转码配方文本，Makefile 内嵌中文必乱码
+	@$(BASH) scripts/build-done.sh ./$(BIN)$(EXE) hint
 
 cross: web-build ## 交叉编译：make cross GOOS=linux GOARCH=amd64 → ./deep-study-linux-amd64（含脚手架资产）
-	./scripts/sync-adapters.sh
-	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO) build -trimpath -ldflags="-s -w" -o $(BIN)-$(GOOS)-$(GOARCH) ./server/cmd/server
-	@echo "打包完成：./$(BIN)-$(GOOS)-$(GOARCH)"
+	$(BASH) scripts/sync-adapters.sh
+	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO) build -trimpath -ldflags="-s -w" -o $(BIN)-$(GOOS)-$(GOARCH)$(TARGET_EXE) ./server/cmd/server
+	@$(BASH) scripts/build-done.sh ./$(BIN)-$(GOOS)-$(GOARCH)$(TARGET_EXE)
 
 clean: ## 清理构建产物
-	rm -f $(BIN) $(BIN)-* && rm -rf web/dist
+	rm -f $(BIN) $(BIN)$(EXE) $(BIN)-* && rm -rf web/dist

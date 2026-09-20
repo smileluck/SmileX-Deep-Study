@@ -21,6 +21,13 @@ sed_i() {
   if sed --version >/dev/null 2>&1; then sed -i "$@"; else sed -i '' "$@"; fi
 }
 
+# rsync -a --delete 的便携替代（Git for Windows 不带 rsync）：清空目标后整树复制
+sync_dir() {
+  rm -rf "$2"
+  mkdir -p "$2"
+  cp -a "$1/." "$2/"
+}
+
 # ---- 1. 生成四个适配器 stub（格式差异保留在各 heredoc，共享内容走变量）----
 
 cat > CLAUDE.md <<'EOF'
@@ -111,16 +118,16 @@ for f in CLAUDE.md CODEBUDDY.md .codebuddy/rules/deep-study/RULE.mdc .trae/rules
 done
 
 # ---- 2. CodeBuddy / WorkBuddy：skills（SKILL.md 格式同源）+ commands（支持 study/ 嵌套 → /study:*）----
-rsync -a --delete .agents/skills/    .codebuddy/skills/
-rsync -a --delete .agents/commands/  .codebuddy/commands/
+sync_dir .agents/skills/    .codebuddy/skills/
+sync_dir .agents/commands/  .codebuddy/commands/
 
 # ---- 3. 脚手架资产（go:embed 不能引用包外文件与点开头路径，故需在包内放副本）----
 A=server/internal/scaffold/assets
 cp AGENTS.md CLAUDE.md CODEBUDDY.md "$A/"
-rsync -a --delete .agents/    "$A/agents/"
-rsync -a --delete .codebuddy/ "$A/codebuddy/"
-rsync -a --delete .trae/      "$A/trae/"
-rsync -a --delete roles/      "$A/roles/"
-rsync -a --delete prompts/    "$A/prompts/"
+sync_dir .agents/    "$A/agents/"
+sync_dir .codebuddy/ "$A/codebuddy/"
+sync_dir .trae/      "$A/trae/"
+sync_dir roles/      "$A/roles/"
+sync_dir prompts/    "$A/prompts/"
 
 echo "已生成四个适配器 stub，同步 .agents/ → .codebuddy/{skills,commands}，并更新 scaffold/assets/"
