@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Lightbulb, PenLine, PartyPopper, Repeat } from 'lucide-react'
 import { get, post, type MasteryResp, type QueueCard, type Topic } from '../api'
+import Markdown from '../components/Markdown'
 
 // 队列播放器：先评分后揭示（检索练习），四档自评走 FSRS，确认答案后手动点「下一张」；
 // 自由回忆模式把答案写给 harness 事后批改。支持按主题过滤队列。
@@ -244,7 +245,9 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
             <div className="flex items-center gap-2">
               <span className="badge badge-ghost badge-sm">{card.topic || '未分类'}</span>
             </div>
-            <h2 className="mt-3 text-lg leading-relaxed font-medium whitespace-pre-wrap">{card.front}</h2>
+            <div className="mt-3 w-full text-lg leading-relaxed font-medium">
+              <Markdown softBreaks>{card.front}</Markdown>
+            </div>
 
             {card.hint &&
               (hintShown ? (
@@ -279,8 +282,8 @@ export default function QueuePlayer({ mode }: { mode: 'learn' | 'review' }) {
 
             {revealed && (
               <>
-                <div className="mt-4 w-full rounded-xl bg-secondary/8 p-5 text-[15px] leading-relaxed whitespace-pre-wrap">
-                  {card.back}
+                <div className="mt-4 w-full rounded-xl bg-secondary/8 p-5 text-[15px] leading-relaxed">
+                  <Markdown softBreaks>{card.back}</Markdown>
                 </div>
                 <button className="btn btn-primary mt-4 gap-2" onClick={next}>
                   下一张 <kbd className="kbd kbd-sm">空格</kbd>

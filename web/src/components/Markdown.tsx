@@ -8,13 +8,17 @@ const MarkdownInner = lazy(() => import('./MarkdownInner'))
 export default function Markdown({
   children,
   components,
+  softBreaks,
 }: {
   children: string
   components?: Components
+  softBreaks?: boolean
 }) {
   return (
     <Suspense fallback={<div className="text-[14.5px] whitespace-pre-wrap">{children}</div>}>
-      <MarkdownInner components={components}>{children}</MarkdownInner>
+      <MarkdownInner components={components} softBreaks={softBreaks}>
+        {children}
+      </MarkdownInner>
     </Suspense>
   )
 }
