@@ -121,7 +121,9 @@ const report = {}
 for (const fn of fs.readdirSync(NOTES).filter((f) => f.endsWith('.md')).sort()) {
   const raw = fs.readFileSync(path.join(NOTES, fn), 'utf8')
   const m = FM.exec(raw)
-  if (!m || !m[0].includes('topic: "' + TOPIC + '"')) continue
+  // topic 值可能带引号也可能不带（不同批次写法不一），两种都要匹配
+  const topicRe = new RegExp('^topic:\\s*("?' + TOPIC.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"?)\\s*$', 'm')
+  if (!m || !topicRe.test(m[0])) continue
   const nid = fn.replace(/\.md$/, '')
   total++
   let tree
