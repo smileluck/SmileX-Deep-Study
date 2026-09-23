@@ -40,6 +40,7 @@ func Register(r *gin.Engine, st *store.Store, version string) {
 
 		api.POST("/materials/upload", a.UploadMaterials)
 		api.GET("/materials", a.GetMaterials)
+		api.DELETE("/materials/inbox", a.DeleteInbox)
 		api.GET("/materials/extract-text", a.ExtractText)
 
 		api.GET("/topics", a.GetTopics)
@@ -80,7 +81,7 @@ func cors() gin.HandlerFunc {
 				}
 			}
 		}
-		c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Content-Type")
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(204)
@@ -209,6 +210,28 @@ func (a *API) GetMaterials(c *gin.Context) {
 		return
 	}
 	c.JSON(200, gin.H{"inbox": inbox, "library": lib, "index": index})
+}
+
+// DeleteInbox 删除 inbox 中指定文件（连同磁盘文件）。仅接受一级文件名，
+// 路径穿越（../、子目录）由 store 层拒绝。文件不存在返回 404。
+func (a *API) DeleteInbox(c *gin.Context) {
+	name := c.Query("name")
+	if name == "" || filepath.Base(name) != name || strings.ContainsAny(name, `/\`) {
+		errJSON(c, 400, fmt.Errorf("name 必须是 inbox 内的文件名（不含路径）"))
+		return
+	}
+	if err := a.Store.DeleteInbox(name); err != nil {
+		switch {
+		case errors.Is(err, os.ErrNotExist):
+			errJSON(c, 404, fmt.Errorf("inbox 中不存在 %s", name))
+		case strings.Contains(err.Error(), "不含路径") || strings.Contains(err.Error(), "是目录"):
+			errJSON(c, 400, err)
+		default:
+			errJSON(c, 500, err)
+		}
+		return
+	}
+	c.JSON(200, gin.H{"ok": true, "deleted": name})
 }
 
 // ---------- 主题 ----------

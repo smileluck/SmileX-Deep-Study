@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { FileUp, FolderTree, Inbox, Pause, Play, Terminal } from 'lucide-react'
-import { fmtDate, fmtSize, get, post, type MaterialsResp, type Topic } from '../api'
+import { FileUp, FolderTree, Inbox, Pause, Play, Terminal, Trash2 } from 'lucide-react'
+import { del, fmtDate, fmtSize, get, post, type MaterialsResp, type Topic } from '../api'
 import CopyButton from '../components/CopyButton'
 
 export default function Library() {
@@ -12,6 +12,7 @@ export default function Library() {
   const [err, setErr] = useState('')
   const [importTopic, setImportTopic] = useState<Record<string, string>>({})
   const [statusBusy, setStatusBusy] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(() => {
@@ -67,6 +68,22 @@ export default function Library() {
       setMsg({ kind: 'err', text: m === 'Failed to fetch' ? '上传失败：连接中断（文件过大或网络异常），请检查文件大小后重试' : `上传失败：${m}` })
     } finally {
       setUploading(false)
+    }
+  }
+
+  // 删除收件箱条目：连同磁盘文件（data/inbox/<name>）一并删除，不可撤销，故先确认。
+  const removeFile = async (name: string) => {
+    if (!window.confirm(`删除收件箱中的「${name}」？\n将同时删除磁盘文件 data/inbox/${name}，此操作不可撤销。`)) return
+    setDeleting(name)
+    setMsg(null)
+    try {
+      await del(`/api/materials/inbox?name=${encodeURIComponent(name)}`)
+      setMsg({ kind: 'ok', text: `已删除 ${name}（含磁盘文件）` })
+      load()
+    } catch (e) {
+      setMsg({ kind: 'err', text: `删除失败：${(e as Error).message}` })
+    } finally {
+      setDeleting(null)
     }
   }
 
@@ -154,6 +171,18 @@ export default function Library() {
                     </select>
                     <code className="hidden rounded-lg bg-base-200 px-2.5 py-1.5 text-xs sm:block">{cmd}</code>
                     <CopyButton text={cmd} label="复制命令" />
+                    <button
+                      className="btn btn-ghost btn-xs text-error"
+                      onClick={() => removeFile(name)}
+                      disabled={deleting === name}
+                      title="删除该文件（连同磁盘上的 data/inbox 文件）"
+                    >
+                      {deleting === name ? (
+                        <span className="loading loading-spinner loading-xs" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                    </button>
                   </div>
                 </li>
               )

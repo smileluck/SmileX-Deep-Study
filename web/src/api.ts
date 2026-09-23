@@ -15,6 +15,12 @@ export async function post<T>(path: string, body?: unknown): Promise<T> {
   return res.json()
 }
 
+export async function del<T>(path: string): Promise<T> {
+  const res = await fetch(path, { method: 'DELETE' })
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? res.statusText)
+  return res.json()
+}
+
 // ---------- 类型 ----------
 
 export interface Stats {

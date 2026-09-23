@@ -583,6 +583,27 @@ func (s *Store) SaveInbox(name string, r io.Reader) (string, error) {
 	return name, nil
 }
 
+// DeleteInbox 删除 inbox 内的文件，连同磁盘文件一并删除。
+// 只接受 inbox 下的一级文件名（filepath.Base 校验），拒绝任何路径/目录，
+// 避免用 ../ 越出 inbox 删掉别的数据。
+// 文件不存在时原样返回 os.ErrNotExist，由调用方映射成 404。
+func (s *Store) DeleteInbox(name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" || name == "." || name == ".." ||
+		filepath.Base(name) != name || strings.ContainsAny(name, `/\`) {
+		return fmt.Errorf("name 必须是 inbox 内的文件名（不含路径）")
+	}
+	path := filepath.Join(s.DataDir, "inbox", name)
+	info, err := os.Stat(path)
+	if err != nil {
+		return err // 含 os.ErrNotExist
+	}
+	if info.IsDir() {
+		return fmt.Errorf("%s 是目录，不是文件", name)
+	}
+	return os.Remove(path)
+}
+
 // ---------- 日志与掌握度 ----------
 
 func (s *Store) AppendJSONL(rel string, v any) error {

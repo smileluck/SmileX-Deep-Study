@@ -166,6 +166,7 @@ level 0-5（0=未接触 … 5=能讲授）。每次变更必须附 evidence（ki
 | GET  | /api/materials/extract-text?name=<inbox 文件名> | PDF 文本层提取（纯 Go，随包零安装；加密 PDF 自动尝试空密码解密）；text 为空说明是扫描件，走 agent 视觉/OCR 降级 |
 | GET  | /api/validate | 数据契约硬校验：扫描 cards/notes/sessions/mastery/materials，返回 errors（schema/fsrs 块/日期/证据链违规）与 warnings（空正文）；agent 工作流收尾必须清零 errors |
 | GET  | /api/materials | inbox + library 列表（含 materials.json） |
+| DELETE | /api/materials/inbox?name=<inbox 文件名> | 删除 inbox 条目**并连同磁盘文件一并删除**（`os.Remove(data/inbox/<name>)`）；只接受一级文件名，`../`、子目录一律 400；不存在 404 |
 | GET  | /api/topics | 主题列表（含卡片/笔记计数） |
 | GET  | /api/review/queue | 扫描 cards/，返回到期队列（按主题交错排序；支持 `?topic=<slug>` 只复习指定主题） |
 | POST | /api/review/grade | {id, rating:1-4} → go-fsrs 重写 frontmatter + 追加日志 |
