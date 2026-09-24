@@ -8,7 +8,8 @@
 //
 // 报告三类问题：
 //   ① KaTeX 渲染失败（页面上会显示成红字 katex-error）——如 \hfill 不存在、一个公式里出现两个 \tag
-//   ② 残留字面 $（公式没被识别成数学，原样显示 $...$）
+//   ② 同段 ≥2 个未转义字面 $（会被 remark-math 配对误吞成公式 → 内容损坏）。
+//      单个不成对的 $（如货币符号，正确写法 \$）为良性：渲染为字面 $，仅计数不判失败
 //   ③ 表格行「格子数多于表头」（GFM 会直接丢弃多出的格子 → 内容丢失）
 //
 // 依赖：项目 web/ 已 pnpm install（脚本自动从 .pnpm 里挑版本，无需写死版本号）
@@ -109,13 +110,13 @@ function normalizeDisplayMath(src) {
 const FM = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/
 const processor = unified().use(remarkParse).use(remarkGfm).use(remarkMath)
 
-function walk(node, fn) {
-  fn(node)
-  if (node.children) for (const c of node.children) walk(c, fn)
+function walk(node, fn, parent = null) {
+  fn(node, parent)
+  if (node.children) for (const c of node.children) walk(c, fn, node)
 }
 
 const only = process.argv.includes('--verbose')
-let total = 0, errTotal = 0, leftoverTotal = 0, badCellTotal = 0
+let total = 0, errTotal = 0, riskyTotal = 0, benignTotal = 0, badCellTotal = 0
 const report = {}
 
 for (const fn of fs.readdirSync(NOTES).filter((f) => f.endsWith('.md')).sort()) {
@@ -134,9 +135,9 @@ for (const fn of fs.readdirSync(NOTES).filter((f) => f.endsWith('.md')).sort()) 
     continue
   }
   const errors = []
-  let leftover = 0, badCells = 0
-  const samples = []
-  walk(tree, (node) => {
+  let badCells = 0
+  const dollars = [] // { parent, value, cnt } —— 按父节点（段落级）聚合判定配对风险
+  walk(tree, (node, parent) => {
     if (node.type === 'table') {
       const ncol = node.children[0] ? node.children[0].children.length : 0
       for (const row of node.children.slice(1)) if (row.children.length > ncol) badCells++
@@ -150,19 +151,31 @@ for (const fn of fs.readdirSync(NOTES).filter((f) => f.endsWith('.md')).sort()) 
       }
     }
     if (node.type === 'text' && node.value.includes('$')) {
-      leftover += (node.value.match(/\$/g) || []).length
-      if (samples.length < 3) samples.push(node.value.replace(/\n/g, ' ⏎ ').slice(0, 110))
+      const cnt = (node.value.match(/\$/g) || []).length
+      dollars.push({ parent, value: node.value.replace(/\n/g, ' ⏎ ').slice(0, 110), cnt })
     }
   })
+  // 同一父节点（段落/标题/表格单元格）下 ≥2 个 $ 会互相配对成 math → 风险；单个为良性
+  const byParent = new Map()
+  for (const d of dollars) byParent.set(d.parent, (byParent.get(d.parent) || 0) + d.cnt)
+  let leftover = 0, benign = 0
+  const samples = []
+  for (const [p, c] of byParent) {
+    if (c >= 2) {
+      leftover += c
+      for (const d of dollars) if (d.parent === p && samples.length < 3) samples.push(d.value)
+    } else benign += c
+  }
   errTotal += errors.length
-  leftoverTotal += leftover
+  riskyTotal += leftover
+  benignTotal += benign
   badCellTotal += badCells
-  if (errors.length || leftover || badCells) report[nid] = { errors, leftover, badCells, samples }
+  if (errors.length || leftover || badCells) report[nid] = { errors, leftover, benign, badCells, samples }
 }
 
 console.log('主题:', TOPIC, ' 笔记数:', total)
 console.log('KaTeX 渲染失败公式数:', errTotal)
-console.log('残留字面 $ 个数:', leftoverTotal)
+console.log('同段多$配对风险个数:', riskyTotal, '（良性单个$如货币符号:', benignTotal, '）')
 console.log('表格「格子多于表头」行数:', badCellTotal)
 console.log('受影响笔记数:', Object.keys(report).length)
 for (const [nid, r] of Object.entries(report)) {
@@ -175,4 +188,4 @@ for (const [nid, r] of Object.entries(report)) {
     console.log('        src: ' + e.src.replace(/\n/g, ' ⏎ '))
   }
 }
-process.exit(errTotal || leftoverTotal || badCellTotal ? 1 : 0)
+process.exit(errTotal || riskyTotal || badCellTotal ? 1 : 0)
