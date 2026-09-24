@@ -361,9 +361,31 @@ func (a *API) ReviewQueue(c *gin.Context) {
 		}
 	}
 	if mode == "learn" {
-		// 新卡无到期意义：组内按创建时间升序，再按主题交错
+		// 新卡按学习路径排序：来源笔记的 order 升序（先修概念在前）；
+		// 无来源笔记（或笔记无 order）的手工卡排最后，按创建时间再按 id。
+		// 之后的 interleaveByTopic 按主题分组时保持此相对顺序，
+		// 故单主题过滤与全局交错两种用法下主题内都是递进的。
+		notes, _ := a.Store.ListNotes()
+		noteOrder := map[string]int{}
+		for _, n := range notes {
+			if o, ok := orderOf(n.FM); ok {
+				noteOrder[n.ID] = o
+			}
+		}
 		sort.SliceStable(due, func(i, j int) bool {
-			return str(due[i].FM["created"]) < str(due[j].FM["created"])
+			oi, okI := noteOrder[str(due[i].FM["note"])]
+			oj, okJ := noteOrder[str(due[j].FM["note"])]
+			if okI != okJ {
+				return okI
+			}
+			if okI && oi != oj {
+				return oi < oj
+			}
+			ci, cj := str(due[i].FM["created"]), str(due[j].FM["created"])
+			if ci != cj {
+				return ci < cj
+			}
+			return due[i].ID < due[j].ID
 		})
 	} else {
 		// 主题内按到期时间排序，再按主题交错（检索练习：交错优先）
