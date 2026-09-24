@@ -97,6 +97,16 @@ func main() {
 			log.Fatal(err)
 		}
 	}()
+	// 后台预热解析缓存：数据量大时首个请求的全量扫描（数千个 markdown）
+	// 在用户打开页面前完成，消除冷启动后的首次加载卡顿
+	go func() {
+		t0 := time.Now()
+		cards, _ := st.ListCards()
+		notes, _ := st.ListNotes()
+		sessions, _ := st.ListSessions()
+		log.Printf("解析缓存预热完成: %d 卡片 / %d 笔记 / %d 会话（耗时 %s）",
+			len(cards), len(notes), len(sessions), time.Since(t0).Round(time.Millisecond))
+	}()
 	<-ctx.Done()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

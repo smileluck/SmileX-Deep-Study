@@ -23,9 +23,74 @@ import (
 type Store struct {
 	DataDir string
 	mu      sync.Mutex
+	// docs 解析缓存：path → frontmatter+正文，命中条件为 大小+mtime 不变。
+	// agent 直接改文件或服务端写盘都会改变 mtime，缓存自动失效，
+	// 因此不改变「data/ 目录是唯一数据源、实时读盘」的语义。
+	cacheMu sync.RWMutex
+	docs    map[string]docCacheEntry
 }
 
-func New(dataDir string) *Store { return &Store{DataDir: dataDir} }
+func New(dataDir string) *Store {
+	return &Store{DataDir: dataDir, docs: map[string]docCacheEntry{}}
+}
+
+type docCacheEntry struct {
+	size  int64
+	mtime time.Time
+	fm    map[string]any
+	body  string
+}
+
+// readFM 读取并解析 path 的 frontmatter（map 形态）与正文，带 大小+mtime 缓存。
+// 返回的 fm 是深拷贝，调用方可自由增改键（如回写 due/state_name/id），
+// 不会污染缓存副本；stat 失败（如文件已删）时顺带清除缓存项。
+func (s *Store) readFM(path string) (map[string]any, string, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		s.cacheMu.Lock()
+		delete(s.docs, path)
+		s.cacheMu.Unlock()
+		return nil, "", err
+	}
+	s.cacheMu.RLock()
+	ent, ok := s.docs[path]
+	s.cacheMu.RUnlock()
+	if ok && ent.size == info.Size() && ent.mtime.Equal(info.ModTime()) {
+		return deepCopyMap(ent.fm), ent.body, nil
+	}
+	doc, err := s.readDoc(path)
+	if err != nil {
+		return nil, "", err
+	}
+	fm := doc.Map()
+	s.cacheMu.Lock()
+	// 并发解析同一路径时后到者覆盖，内容等价，无需双检
+	s.docs[path] = docCacheEntry{size: info.Size(), mtime: info.ModTime(), fm: fm, body: doc.Body}
+	s.cacheMu.Unlock()
+	return deepCopyMap(fm), doc.Body, nil
+}
+
+func deepCopyMap(m map[string]any) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[k] = deepCopyValue(v)
+	}
+	return out
+}
+
+func deepCopyValue(v any) any {
+	switch t := v.(type) {
+	case map[string]any:
+		return deepCopyMap(t)
+	case []any:
+		out := make([]any, len(t))
+		for i, e := range t {
+			out[i] = deepCopyValue(e)
+		}
+		return out
+	}
+	return v
+}
 
 // Lock/Unlock 串行化跨多次文件操作的读-改-写流程（评分、改判、建卡、上传、
 // recall 追加等）。gin 每个请求一个 goroutine，调用方在写路径入口持锁。
@@ -141,18 +206,63 @@ func (s *Store) CardIDs() ([]string, error)    { return IDsIn(s.CardsDir()) }
 func (s *Store) NoteIDs() ([]string, error)    { return IDsIn(s.NotesDir()) }
 func (s *Store) SessionIDs() ([]string, error) { return IDsIn(s.SessionsDir()) }
 
-func (s *Store) ListCards() ([]Card, error) {
-	ids, err := IDsIn(s.CardsDir())
+// listedDoc 是 listDocs 的统一解析结果（卡片/笔记/会话共用字段）。
+type listedDoc struct {
+	ID   string
+	Path string
+	FM   map[string]any
+	Body string
+}
+
+// listDocs 并行解析 dir 下全部 markdown（保持文件名排序，坏文件跳过）。
+// Windows 上数千小文件的串行读+解析是请求级主要耗时，16 路并发约提速 5 倍；
+// 命中 readFM 缓存时仅剩 readdir+stat。
+func (s *Store) listDocs(dir string) ([]listedDoc, error) {
+	ids, err := IDsIn(dir)
 	if err != nil {
 		return nil, err
 	}
-	cards := make([]Card, 0, len(ids))
-	for _, id := range ids {
-		c, err := s.GetCard(id)
-		if err != nil {
-			continue // 坏文件跳过而不是整体失败
+	results := make([]*listedDoc, len(ids))
+	var wg sync.WaitGroup
+	ch := make(chan int)
+	workers := min(16, len(ids))
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range ch {
+				path := filepath.Join(dir, ids[i]+".md")
+				fm, body, err := s.readFM(path)
+				if err != nil {
+					continue // 坏文件跳过而不是整体失败
+				}
+				fm["id"] = ids[i]
+				results[i] = &listedDoc{ID: ids[i], Path: path, FM: fm, Body: body}
+			}
+		}()
+	}
+	for i := range ids {
+		ch <- i
+	}
+	close(ch)
+	wg.Wait()
+	out := make([]listedDoc, 0, len(ids))
+	for _, r := range results {
+		if r != nil {
+			out = append(out, *r)
 		}
-		cards = append(cards, *c)
+	}
+	return out, nil
+}
+
+func (s *Store) ListCards() ([]Card, error) {
+	docs, err := s.listDocs(s.CardsDir())
+	if err != nil {
+		return nil, err
+	}
+	cards := make([]Card, 0, len(docs))
+	for _, d := range docs {
+		cards = append(cards, Card{ID: d.ID, Path: d.Path, FM: d.FM, Body: d.Body})
 	}
 	return cards, nil
 }
@@ -162,13 +272,12 @@ func (s *Store) GetCard(id string) (*Card, error) {
 		return nil, fmt.Errorf("非法卡片 id %q: %w", id, ErrInvalidID)
 	}
 	path := filepath.Join(s.CardsDir(), id+".md")
-	doc, err := s.readDoc(path)
+	fm, body, err := s.readFM(path)
 	if err != nil {
 		return nil, err
 	}
-	fm := doc.Map()
 	fm["id"] = id
-	return &Card{ID: id, Path: path, FM: fm, Body: doc.Body}, nil
+	return &Card{ID: id, Path: path, FM: fm, Body: body}, nil
 }
 
 // CardFSRSMap 提取 fsrs 块（缺失/为空返回 nil, nil 表示新卡）。
@@ -274,20 +383,13 @@ type Note struct {
 func (s *Store) NotesDir() string { return filepath.Join(s.DataDir, "notes") }
 
 func (s *Store) ListNotes() ([]Note, error) {
-	ids, err := IDsIn(s.NotesDir())
+	docs, err := s.listDocs(s.NotesDir())
 	if err != nil {
 		return nil, err
 	}
-	notes := make([]Note, 0, len(ids))
-	for _, id := range ids {
-		path := filepath.Join(s.NotesDir(), id+".md")
-		doc, err := s.readDoc(path)
-		if err != nil {
-			continue
-		}
-		fm := doc.Map()
-		fm["id"] = id
-		notes = append(notes, Note{ID: id, Path: path, FM: fm, Body: doc.Body})
+	notes := make([]Note, 0, len(docs))
+	for _, d := range docs {
+		notes = append(notes, Note{ID: d.ID, Path: d.Path, FM: d.FM, Body: d.Body})
 	}
 	return notes, nil
 }
@@ -297,13 +399,12 @@ func (s *Store) GetNote(id string) (*Note, error) {
 		return nil, fmt.Errorf("非法笔记 id %q: %w", id, ErrInvalidID)
 	}
 	path := filepath.Join(s.NotesDir(), id+".md")
-	doc, err := s.readDoc(path)
+	fm, body, err := s.readFM(path)
 	if err != nil {
 		return nil, err
 	}
-	fm := doc.Map()
 	fm["id"] = id
-	return &Note{ID: id, Path: path, FM: fm, Body: doc.Body}, nil
+	return &Note{ID: id, Path: path, FM: fm, Body: body}, nil
 }
 
 // ---------- 会话 ----------
@@ -318,20 +419,13 @@ type Session struct {
 func (s *Store) SessionsDir() string { return filepath.Join(s.DataDir, "sessions") }
 
 func (s *Store) ListSessions() ([]Session, error) {
-	ids, err := IDsIn(s.SessionsDir())
+	docs, err := s.listDocs(s.SessionsDir())
 	if err != nil {
 		return nil, err
 	}
-	sessions := make([]Session, 0, len(ids))
-	for _, id := range ids {
-		path := filepath.Join(s.SessionsDir(), id+".md")
-		doc, err := s.readDoc(path)
-		if err != nil {
-			continue
-		}
-		fm := doc.Map()
-		fm["id"] = id
-		sessions = append(sessions, Session{ID: id, Path: path, FM: fm, Body: doc.Body})
+	sessions := make([]Session, 0, len(docs))
+	for _, d := range docs {
+		sessions = append(sessions, Session{ID: d.ID, Path: d.Path, FM: d.FM, Body: d.Body})
 	}
 	// 按日期倒序（id 首段是日期时直接按 id 倒序即可近似）
 	sort.Slice(sessions, func(i, j int) bool {
@@ -350,13 +444,12 @@ func (s *Store) GetSession(id string) (*Session, error) {
 		return nil, fmt.Errorf("非法会话 id %q: %w", id, ErrInvalidID)
 	}
 	path := filepath.Join(s.SessionsDir(), id+".md")
-	doc, err := s.readDoc(path)
+	fm, body, err := s.readFM(path)
 	if err != nil {
 		return nil, err
 	}
-	fm := doc.Map()
 	fm["id"] = id
-	return &Session{ID: id, Path: path, FM: fm, Body: doc.Body}, nil
+	return &Session{ID: id, Path: path, FM: fm, Body: body}, nil
 }
 
 // ---------- 主题 ----------
@@ -406,14 +499,14 @@ type Plan struct {
 // MasterPlan 读取全局计划；文件不存在返回 nil, nil。
 func (s *Store) MasterPlan() (*Plan, error) {
 	path := filepath.Join(s.DataDir, "plans", "master.md")
-	doc, err := s.readDoc(path)
+	fm, body, err := s.readFM(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return &Plan{Slug: "master", Path: path, FM: doc.Map(), Body: doc.Body}, nil
+	return &Plan{Slug: "master", Path: path, FM: fm, Body: body}, nil
 }
 
 // TopicPlans 扫描 data/topics/*/plan.md，按 slug 排序。
@@ -431,11 +524,11 @@ func (s *Store) TopicPlans() ([]Plan, error) {
 			continue
 		}
 		path := filepath.Join(s.TopicsDir(), e.Name(), "plan.md")
-		doc, err := s.readDoc(path)
+		fm, body, err := s.readFM(path)
 		if err != nil {
 			continue // 坏文件跳过而不是整体失败
 		}
-		plans = append(plans, Plan{Slug: e.Name(), Path: path, FM: doc.Map(), Body: doc.Body})
+		plans = append(plans, Plan{Slug: e.Name(), Path: path, FM: fm, Body: body})
 	}
 	sort.Slice(plans, func(i, j int) bool { return plans[i].Slug < plans[j].Slug })
 	return plans, nil
@@ -446,11 +539,11 @@ func (s *Store) GetTopicPlan(slug string) (*Plan, error) {
 		return nil, fmt.Errorf("非法主题 slug %q: %w", slug, ErrInvalidID)
 	}
 	path := filepath.Join(s.TopicsDir(), slug, "plan.md")
-	doc, err := s.readDoc(path)
+	fm, body, err := s.readFM(path)
 	if err != nil {
 		return nil, err
 	}
-	return &Plan{Slug: slug, Path: path, FM: doc.Map(), Body: doc.Body}, nil
+	return &Plan{Slug: slug, Path: path, FM: fm, Body: body}, nil
 }
 
 // SetTopicStatus 写 manifest.json 的 status 字段（active/paused，由调用方校验取值）。
