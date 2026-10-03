@@ -123,6 +123,7 @@ export default function Mistakes() {
   // ---------- 重练模式 ----------
   if (drill) {
     const m = drill[Math.min(idx, drill.length - 1)]
+    const imgs = mistakeImages(m)
     const last = idx >= drill.length - 1
     return (
       <div className="mx-auto max-w-2xl p-8">
@@ -150,7 +151,7 @@ export default function Mistakes() {
             </div>
             <p className="mt-3 whitespace-pre-wrap text-sm font-medium leading-relaxed">{m.question}</p>
             {m.hint && <HintToggle key={m.id} hint={m.hint} />}
-            <MistakeImages images={mistakeImages(m)} onView={setViewer} />
+            <MistakeImages images={imgs.slice(0, 1)} onView={setViewer} large />
 
             {!revealed ? (
               <button className="btn btn-primary btn-sm mt-5 gap-1 self-start" onClick={() => setRevealed(true)}>
@@ -172,6 +173,12 @@ export default function Mistakes() {
                   <div className="rounded-lg bg-info/5 p-3">
                     <div className="text-xs font-semibold text-info/70">错因分析</div>
                     <p className="mt-1 whitespace-pre-wrap leading-relaxed opacity-80">{m.analysis}</p>
+                  </div>
+                )}
+                {imgs.length > 1 && (
+                  <div>
+                    <div className="text-xs font-semibold opacity-50">解答原图</div>
+                    <MistakeImages images={imgs.slice(1)} onView={setViewer} large />
                   </div>
                 )}
                 <MistakeAnalysis m={m} />
@@ -364,7 +371,13 @@ export default function Mistakes() {
               <div className="flex flex-col gap-3 text-sm">
                 <p className="whitespace-pre-wrap font-medium leading-relaxed">{selected.question}</p>
                 {selected.hint && <HintToggle key={selected.id} hint={selected.hint} />}
-                <MistakeImages images={mistakeImages(selected)} onView={setViewer} />
+                <MistakeImages images={mistakeImages(selected).slice(0, 1)} onView={setViewer} large />
+                {mistakeImages(selected).length > 1 && (
+                  <div>
+                    <div className="text-xs font-semibold opacity-50">解答原图</div>
+                    <MistakeImages images={mistakeImages(selected).slice(1)} onView={setViewer} large />
+                  </div>
+                )}
                 <div className="border-t border-base-200 pt-3">
                   <div className="text-xs font-semibold opacity-50">参考答案</div>
                   <p className="mt-1 whitespace-pre-wrap leading-relaxed opacity-85">{selected.answer}</p>
@@ -433,22 +446,32 @@ function mistakeImages(m: Mistake): string[] {
   return [...new Set([...(m.image ? [m.image] : []), ...(m.images ?? [])])]
 }
 
-function MistakeImages({ images, onView }: { images: string[]; onView: (url: string) => void }) {
+function MistakeImages({
+  images,
+  onView,
+  large,
+}: {
+  images: string[]
+  onView: (url: string) => void
+  large?: boolean
+}) {
   if (!images.length) return null
   return (
-    <div className="mt-2 flex flex-wrap gap-3">
+    <div className={`mt-2 flex ${large ? 'flex-col items-start gap-4' : 'flex-wrap gap-3'}`}>
       {images.map((image) => {
         const url = assetUrl(image)
         return (
-          <button key={image} className="group block w-fit cursor-zoom-in" title="查看原图" onClick={() => onView(url)}>
+          <button key={image} className="group block w-fit cursor-zoom-in" title="点击放大" onClick={() => onView(url)}>
             <img
               src={url}
               alt="错题原图"
               loading="lazy"
-              className="max-h-28 rounded-lg border border-base-300 object-contain transition-opacity group-hover:opacity-80"
+              className={`rounded-lg border border-base-300 object-contain transition-opacity group-hover:opacity-80 ${
+                large ? 'max-h-[32rem] w-auto max-w-full' : 'max-h-28'
+              }`}
             />
             <span className="mt-1 flex items-center gap-1 text-xs opacity-40 group-hover:opacity-70">
-              <ImageIcon className="h-3 w-3" /> 查看原图
+              <ImageIcon className="h-3 w-3" /> 点击放大
             </span>
           </button>
         )
