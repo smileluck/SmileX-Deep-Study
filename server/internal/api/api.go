@@ -365,10 +365,9 @@ func (a *API) ReviewQueue(c *gin.Context) {
 		}
 	}
 	if mode == "learn" {
-		// 新卡按学习路径排序：来源笔记的 order 升序（先修概念在前）；
-		// 无来源笔记（或笔记无 order）的手工卡排最后，按创建时间再按 id。
-		// 之后的 interleaveByTopic 按主题分组时保持此相对顺序，
-		// 故单主题过滤与全局交错两种用法下主题内都是递进的。
+		// 新卡按学习路径排序：先按主题成块，块内按来源笔记的 order 升序（先修概念在前）；
+		// 无来源笔记（或笔记无 order）的手工卡排块内最后，按创建时间再按 id。
+		// 学习新卡不做主题交错（见下方 interleaved），保证全局队列同样由浅入深。
 		notes, _ := a.Store.ListNotes()
 		noteOrder := map[string]int{}
 		for _, n := range notes {
@@ -377,6 +376,10 @@ func (a *API) ReviewQueue(c *gin.Context) {
 			}
 		}
 		sort.SliceStable(due, func(i, j int) bool {
+			ti, tj := str(due[i].FM["topic"]), str(due[j].FM["topic"])
+			if ti != tj {
+				return ti < tj
+			}
 			oi, okI := noteOrder[str(due[i].FM["note"])]
 			oj, okJ := noteOrder[str(due[j].FM["note"])]
 			if okI != okJ {
@@ -395,7 +398,12 @@ func (a *API) ReviewQueue(c *gin.Context) {
 		// 主题内按到期时间排序，再按主题交错（检索练习：交错优先）
 		sort.Slice(due, func(i, j int) bool { return cardDue(due[i]).Before(cardDue(due[j])) })
 	}
-	interleaved := interleaveByTopic(due)
+	// 复习模式按主题交错（交错练习利于区分与提取）；学习新卡保持主题成块、
+	// 块内按笔记 order 递进——新概念首学时频繁跳主题会破坏先修→进阶的上下文
+	interleaved := due
+	if mode != "learn" {
+		interleaved = interleaveByTopic(due)
+	}
 	out := make([]map[string]any, 0, len(interleaved))
 	for _, card := range interleaved {
 		m := card.FM

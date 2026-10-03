@@ -565,3 +565,80 @@ image: assets/m-img.png
 		t.Errorf("补齐原图后 validate 应通过: %+v", out.Errors)
 	}
 }
+
+// 学习队列（mode=learn）必须递进：主题成块、块内按笔记 order 升序，不做主题交错。
+func TestReviewQueueLearnProgressive(t *testing.T) {
+	r, st := setup(t)
+	writeManifest(t, st, "alpha", "")
+	writeManifest(t, st, "beta", "")
+
+	writeNote := func(id, topic string, order int) {
+		t.Helper()
+		content := fmt.Sprintf(`---
+id: %s
+title: %s
+topic: %s
+order: %d
+created: 2026-09-16
+---
+`, id, id, topic, order)
+		if err := os.WriteFile(filepath.Join(st.NotesDir(), id+".md"), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeCard := func(id, topic, note string) {
+		t.Helper()
+		content := fmt.Sprintf(`---
+id: %s
+note: %s
+topic: %s
+type: basic
+front: q
+back: a
+hint: 这是一个十五字以上的回忆抓手提示
+created: 2026-09-16
+fsrs:
+  due: "2026-09-16T00:00:00Z"
+  stability: 0
+  difficulty: 0
+  elapsed_days: 0
+  scheduled_days: 0
+  reps: 0
+  lapses: 0
+  state: 0
+  last_review: null
+---
+`, id, note, topic)
+		if err := os.WriteFile(filepath.Join(st.CardsDir(), id+".md"), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	writeNote("alpha-n2", "alpha", 2)
+	writeNote("alpha-n1", "alpha", 1)
+	writeNote("beta-n1", "beta", 1)
+	writeCard("c-a2", "alpha", "alpha-n2")
+	writeCard("c-a1", "alpha", "alpha-n1")
+	writeCard("c-b1", "beta", "beta-n1")
+
+	code, resp := doJSON(t, r, http.MethodGet, "/api/review/queue?mode=learn", nil)
+	if code != 200 {
+		t.Fatalf("queue status = %d", code)
+	}
+	var q struct {
+		Cards []struct {
+			ID string `json:"id"`
+		} `json:"cards"`
+	}
+	if err := json.Unmarshal(resp, &q); err != nil {
+		t.Fatal(err)
+	}
+	got := []string{}
+	for _, c := range q.Cards {
+		got = append(got, c.ID)
+	}
+	want := []string{"c-a1", "c-a2", "c-b1"}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("learn 队列 = %v, want %v（主题成块 + 块内按笔记 order 递进）", got, want)
+	}
+}
