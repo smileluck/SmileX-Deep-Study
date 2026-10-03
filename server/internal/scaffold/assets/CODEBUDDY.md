@@ -8,6 +8,6 @@
 
 - 学习数据全部是纯文件（`data/` 下的 markdown + frontmatter + JSON），可直接读写；
 - `cards/*.md` 的 `fsrs:` 块、`review-log.jsonl`、`recall-log.jsonl` 只有 Go 服务端可写，你只读（建新卡时原样复制全零 fsrs 块除外）；
-- 八条工作流（导入/导师/费曼/复习/自测/诊断/规划/合并）的完整步骤见 `AGENTS.md`，技能定义在 `.codebuddy/skills/`（或 `.agents/skills/`）；
-- 斜杠命令：`/study:import`、`/study:tutor`、`/study:feynman`、`/study:quiz`、`/study:diagnose`、`/study:plan`、`/study:merge`（`.codebuddy/commands/study/`）；
+- 八条工作流（导入/导师/费曼/复习/自测/诊断/规划/合并/错题）的完整步骤见 `AGENTS.md`，技能定义在 `.codebuddy/skills/`（或 `.agents/skills/`）；
+- 斜杠命令：`/study:import`、`/study:tutor`、`/study:feynman`、`/study:quiz`、`/study:diagnose`、`/study:plan`、`/study:merge`、`/study:mistake`（`.codebuddy/commands/study/`）；
 - 通用 prompt 模板在 `prompts/`，是技能步骤的摘要，细节以 SKILL.md 为准。

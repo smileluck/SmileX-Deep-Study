@@ -1,6 +1,7 @@
 package store
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -132,6 +133,116 @@ func TestWriteAtomicConcurrent(t *testing.T) {
 	want := fmt.Sprintf("begin-%03d-%s-end\n", i, strings.Repeat("x", 4096))
 	if text != want {
 		t.Fatalf("最终文件来自多个写者交叉污染: %.40q", text)
+	}
+}
+
+func writeMistakeFile(t *testing.T, s *Store, id string) {
+	t.Helper()
+	if err := os.MkdirAll(s.MistakesDir(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	content := `---
+id: ` + id + `
+topic: spaced-repetition
+source: quiz
+session: 20261003-quiz-spaced-repetition
+question: 什么是稳定性？
+answer: |
+  R 衰减到阈值的天数。
+my_answer: 不知道
+analysis: 概念没记住
+status: active
+created: 2026-10-03
+mastered_at: null
+---
+正文备注
+`
+	if err := os.WriteFile(filepath.Join(s.MistakesDir(), id+".md"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestListMistakesEmptyDirMissing(t *testing.T) {
+	s := New(t.TempDir())
+	mistakes, err := s.ListMistakes()
+	if err != nil {
+		t.Fatalf("ListMistakes: %v", err)
+	}
+	if len(mistakes) != 0 {
+		t.Errorf("目录不存在时应为空列表, got %d", len(mistakes))
+	}
+}
+
+func TestListMistakes(t *testing.T) {
+	s := New(t.TempDir())
+	writeMistakeFile(t, s, "m-b")
+	writeMistakeFile(t, s, "m-a")
+	mistakes, err := s.ListMistakes()
+	if err != nil {
+		t.Fatalf("ListMistakes: %v", err)
+	}
+	if len(mistakes) != 2 {
+		t.Fatalf("len = %d, want 2", len(mistakes))
+	}
+	if mistakes[0].ID != "m-a" || mistakes[1].ID != "m-b" {
+		t.Errorf("排序应为文件名序: %s, %s", mistakes[0].ID, mistakes[1].ID)
+	}
+	if mistakes[0].FM["topic"] != "spaced-repetition" {
+		t.Errorf("topic = %v", mistakes[0].FM["topic"])
+	}
+	if mistakes[0].FM["status"] != "active" {
+		t.Errorf("status = %v", mistakes[0].FM["status"])
+	}
+}
+
+func TestSetMistakeStatus(t *testing.T) {
+	s := New(t.TempDir())
+	writeMistakeFile(t, s, "m-1")
+
+	today := "2026-10-03"
+	if err := s.SetMistakeStatus("m-1", "mastered", &today); err != nil {
+		t.Fatalf("SetMistakeStatus mastered: %v", err)
+	}
+	m, err := s.GetMistake("m-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.FM["status"] != "mastered" {
+		t.Errorf("status = %v, want mastered", m.FM["status"])
+	}
+	if m.FM["mastered_at"] != today {
+		t.Errorf("mastered_at = %v, want %s", m.FM["mastered_at"], today)
+	}
+	// 其他字段保持不动
+	if m.FM["question"] != "什么是稳定性？" || m.FM["analysis"] != "概念没记住" {
+		t.Errorf("其他字段被改动: %+v", m.FM)
+	}
+	if m.Body == "" {
+		t.Error("正文丢失")
+	}
+
+	if err := s.SetMistakeStatus("m-1", "active", nil); err != nil {
+		t.Fatalf("SetMistakeStatus active: %v", err)
+	}
+	m, err = s.GetMistake("m-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.FM["status"] != "active" {
+		t.Errorf("status = %v, want active", m.FM["status"])
+	}
+	if m.FM["mastered_at"] != nil {
+		t.Errorf("恢复 active 后 mastered_at = %v, want null", m.FM["mastered_at"])
+	}
+}
+
+func TestSetMistakeStatusErrors(t *testing.T) {
+	s := New(t.TempDir())
+	if err := s.SetMistakeStatus("../x", "active", nil); !errors.Is(err, ErrInvalidID) {
+		t.Errorf("非法 id 应报 ErrInvalidID, got %v", err)
+	}
+	if err := s.SetMistakeStatus("ghost", "active", nil); !errors.Is(err, ErrNotFound) {
+		t.Errorf("不存在应报 ErrNotFound, got %v", err)
 	}
 }
 

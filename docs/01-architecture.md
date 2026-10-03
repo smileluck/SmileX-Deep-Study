@@ -26,6 +26,8 @@ SmileX-Deep-Study/
 │   ├── plans/master.md                # 全局学习计划（W7 产出，agent 读写）
 │   ├── notes/<id>.md                  # 原子笔记
 │   ├── cards/<id>.md                  # 卡片（一卡一文件，内嵌 FSRS 状态）
+│   ├── mistakes/<id>.md               # 错题库（一题一文件，agent 创建，UI 标记攻克）
+│   ├── mistakes/assets/               # 错题原图（agent 写入，服务端只读，供页面查看对照）
 │   ├── sessions/<id>.md               # 会话日志（tutor/feynman/quiz/diagnose/import/plan/merge）
 │   └── progress/
 │       ├── mastery.json               # 掌握度（0-5 + 证据链）
@@ -83,8 +85,44 @@ fsrs:                          # ★ 只有 Go 服务端可写
 （可选正文，如 cloze 的上下文）
 ```
 
-### 会话 `data/sessions/<id>.md`
+### 错题 `data/mistakes/<id>.md`
 
+```markdown
+---
+id: 20261003-quiz-spaced-repetition-1
+topic: spaced-repetition
+source: quiz                     # quiz（W5 判错）| image（用户发图，agent 视觉解析落地）
+session: 20261003-quiz-spaced-repetition   # 来源 quiz 会话 id；image 来源为空字符串
+question: 题目原文
+answer: |
+  正确答案/参考结果。
+my_answer: 学习者的错误作答       # 可空
+analysis: 错因一句话              # 可空
+knowledge: 考察的知识点/考点       # 可空（W9 必填）
+solution: |                      # 解题思路分析（W9 必填）
+  …
+hint: 重练提示（15-40 字，只给方向不给答案）
+option_analysis: |               # 选择题必填：逐选项为什么能选/不能选
+  …
+pitfalls: |                      # 易错点分析（W9 必填）
+  …
+related:                         # 同考点真题（W9 联网检索，必须真实出处；找不到填 []）
+  - title: 2023 年某高考数学第 12 题
+    url: https://example.org/real-link
+    source: 官方考试机构/权威题库
+    note: 官方答案 B，解析要点……
+image: assets/<id>.png           # 题目原图（相对 mistakes/ 的路径）；image 来源必填，quiz 来源可空
+images: [assets/<id>-a.png]      # 多图列表（答案/解析图等），与 image 合并展示，可空
+status: active                   # active | mastered
+created: 2026-10-03
+mastered_at: null                # 攻克日期或 null
+---
+（可选正文：更详细的解析）
+```
+
+创建由 agent 负责（固定 `status: active`、`mastered_at: null`）；图片录入时先把原图存到 `data/mistakes/assets/` 再写 `image` 字段。`status`/`mastered_at` 由 Go 服务端经「错题库」页切换。重练为纯 UI 翻卡，不影响 FSRS；原图在错题详情与重练页可点击查看。
+
+### 会话 `data/sessions/<id>.md`
 ```markdown
 ---
 id: 20260913-tutor-fsrs
@@ -145,7 +183,7 @@ level 0-5（0=未接触 … 5=能讲授）。每次变更必须附 evidence（ki
 - 主题计划 `data/topics/<slug>/plan.md`：frontmatter `topic`（= slug）/ `goal` / `horizon` / `created` / `updated` / `status`（active|done|paused）；正文「## 里程碑」用 `- [ ]`/`- [x]` 清单，每个里程碑绑定可检验完成标准；「## 周计划」按间隔效应与交错练习排布。
 - 全局计划 `data/plans/master.md`：frontmatter `id: master` / `title` / `created` / `updated`；正文含主题优先级（引用 mastery/diagnose 证据）、每周节奏、主题计划索引。全局计划不维护里程碑——「计划」页的总进度由各主题计划的 `- [x]` 聚合得出。
 
-## 四、八条工作流与职责边界
+## 四、九条工作流与职责边界
 
 | # | 工作流 | 执行者 | 输入 → 输出 |
 |---|---|---|---|
@@ -153,10 +191,11 @@ level 0-5（0=未接触 … 5=能讲授）。每次变更必须附 evidence（ki
 | W2 精读导师 | harness `/study:tutor` | harness | 材料笔记 → sessions/tutor-*.md（苏格拉底对话+误解记录） |
 | W3 费曼内化 | harness `/study:feynman` | harness | 学习者口述 → 笔记 `## Gaps` 更新 + 新卡草案 |
 | W4 复习 | Web UI（零 LLM） | Go | 到期队列 → 四档评分 → FSRS 更新 + review-log |
-| W5 自测 | harness `/study:quiz` | harness | 笔记 → 新题（不复用卡片）→ 批改 → mastery 回写 |
+| W5 自测 | harness `/study:quiz` | harness | 笔记 → 新题（不复用卡片）→ 批改 → 错题写 mistakes/ + mastery 回写 |
 | W6 诊断 | harness `/study:diagnose` | harness | mastery+日志+会话 → 弱点报告 → 定向练习卡 |
 | W7 规划 | harness `/study:plan` | harness | 目标+mastery/诊断证据 → plans/master.md + topics/<slug>/plan.md（里程碑+周计划） |
-| W8 合并 | harness `/study:merge` | harness | 多个 topic → 幸存 topic：迁移笔记/卡片/材料归属与 order 重排 → mastery 与计划合并 → 删除源主题目录 |
+| W8 合并 | harness `/study:merge` | harness | 多个 topic → 幸存 topic：迁移笔记/卡片/错题/材料归属与 order 重排 → mastery 与计划合并 → 删除源主题目录 |
+| W9 错题录入 | harness `/study:mistake` | harness | 错题图片 → 存原图 + 知识点判定 + 解题思路/提示 + 选择题逐选项分析与易错点 + 联网检索同考点真题（真实出处）→ mistakes/ 落盘 |
 
 ## 五、Go 后端 API
 
@@ -174,6 +213,9 @@ level 0-5（0=未接触 … 5=能讲授）。每次变更必须附 evidence（ki
 | GET  | /api/notes / /api/notes/:id | 笔记列表（含反链）/ 详情 |
 | POST | /api/cards | UI 手动建卡（fsrs 初始化为 New） |
 | GET  | /api/sessions | 会话列表（解析 frontmatter） |
+| GET  | /api/mistakes | 错题列表（含按主题 active/mastered 统计），供「错题库」页 |
+| GET  | /api/mistakes/asset?name=<assets 内文件名> | 错题原图（只读，路径穿越 400，不存在 404） |
+| POST | /api/mistakes/:id/status | {status: active\|mastered} → 定向改写 status 与 mastered_at（攻克/恢复） |
 | GET  | /api/mastery | mastery.json + 各主题卡片健康度 |
 | GET  | /api/plans / /api/plans/:slug | 全局学习计划 + 各主题路线图（只读，供「计划」页渲染） |
 | GET  | /api/stats | 仪表盘：今日到期/总卡数/连续天数/90天热力图/最近会话 |

@@ -1,6 +1,6 @@
 # AGENTS.md — SmileX-Deep-Study 数据与工作流契约
 
-你是本仓库的**学习导师 agent**。本文件是你与 Web UI 共享的**唯一权威契约**：目录结构、文件格式、读写规则、八条工作流。`docs/01-architecture.md` 是人类版说明，冲突时以本文件为准。
+你是本仓库的**学习导师 agent**。本文件是你与 Web UI 共享的**唯一权威契约**：目录结构、文件格式、读写规则、九条工作流。`docs/01-architecture.md` 是人类版说明，冲突时以本文件为准。
 
 本系统**不接 LLM API**——所有理解类工作（提取、导师对话、出题批改、诊断、规划）由你完成；调度类工作（FSRS 间隔计算、统计）由 Go 服务端独占。
 
@@ -15,6 +15,7 @@ data/
 ├── plans/master.md # 全局学习计划（跨主题，W7 产出）
 ├── notes/<id>.md   # 原子笔记（一个笔记只讲一个想法）
 ├── cards/<id>.md   # 卡片（一卡一文件，内嵌 FSRS 调度状态）
+├── mistakes/<id>.md                # 错题库（一题一文件，agent 创建，UI 标记攻克）
 ├── sessions/<id>.md                # 会话日志（tutor/feynman/quiz/diagnose/import/plan/merge）
 └── progress/
     ├── mastery.json     # 掌握度 0-5 + 证据链
@@ -79,6 +80,47 @@ fsrs:                             # ★ 禁区：只有 Go 服务端可写
 **建卡时必须原样复制上面整段 `fsrs:` 块**（全零 + due=当天 + last_review: null），不要自己计算调度值。
 
 `hint` 是学习/复习时显示在问题下方的回忆抓手：15-40 字，只给思考方向或关键词，**不许复述答案原文**。建卡必填。
+
+### 错题 `data/mistakes/<id>.md`（id = 文件名，kebab-case，全局唯一）
+
+```markdown
+---
+id: 20261003-quiz-spaced-repetition-1
+topic: spaced-repetition
+source: quiz                     # quiz | image
+session: 20261003-quiz-spaced-repetition   # 来源 quiz 会话 id；image 来源留空字符串
+question: 题目原文
+answer: |
+  正确答案/参考结果。
+my_answer: 学习者的错误作答       # 可空字符串
+analysis: 错因一句话              # 可空字符串
+knowledge: 考察的知识点/考点一句话  # 可空字符串（W9 必填）
+solution: |                      # 解题思路分析，可空（W9 必填）
+  先求导找驻点，再比较端点……
+hint: 从定义域端点想起            # 重练提示（15-40 字，只给方向不给答案），可空
+option_analysis: |               # 选择题必填：每个选项为什么能选/不能选；非选择题留空字符串
+  A 错：漏了定义域端点；B 对：……
+pitfalls: |                      # 易错点分析，可空（W9 必填）
+  常见错误：忘记比较端点值……
+related:                         # 同考点真题/模拟题（W9 联网检索填写，必须真实出处；找不到可靠来源就空数组 []，禁止编造）
+  - title: 2023 年某高考数学第 12 题
+    url: https://example.org/real-link
+    source: 官方考试机构/权威题库
+    note: 同一考点，官方答案 B，解析要点……
+image: assets/20261003-quiz-spaced-repetition-1.png   # 题目原图（相对 mistakes/ 的路径）；image 来源必填，quiz 来源可空
+images:                          # 多图时用列表（题目图、答案/解析图等），与 image 合并展示；没有就空数组 []
+  - assets/20261003-quiz-spaced-repetition-1-a.png
+status: active                   # active | mastered
+created: 2026-10-03
+mastered_at: null                # 攻克日期 YYYY-MM-DD 或 null
+---
+（可选正文：更详细的解析，如图片题可附题干补充说明）
+```
+
+- **创建由你负责**：quiz 判错的题（source: quiz，session 关联本次会话 id）、用户发来的错题图片/截图（source: image，session 留空）都按此格式一题一文件落地。创建时固定写 `status: active`、`mastered_at: null`。
+- **`status`/`mastered_at` 由 Go 服务端经 Web UI 切换**（用户在「错题库」页标记攻克/恢复），你不要改这两个字段。
+- `knowledge`/`solution`/`hint`/`option_analysis`/`pitfalls`/`related` 由 **W9 错题录入**填写（选择题必须写 `option_analysis`）；W5 quiz 落错题时这些字段可留空，后续可经 W9 补录。
+- 错题图片录入走 **W9 `/study:mistake`**：先存原图到 `data/mistakes/assets/<错题id>.<原扩展名>` → 解析与知识点/思路/易错点分析 → 联网检索同考点真题填 `related` → 写文件 → 跑 `/api/validate`。重练与攻克在 Web UI「错题库」页进行，不影响 FSRS 调度；原图在错题详情与重练页可点击查看。
 
 ### 会话 `data/sessions/<id>.md`（id 建议 `YYYYMMDD-<type>-<topic>`）
 
@@ -175,8 +217,9 @@ updated: 2026-09-15
 7. **硬校验**：凡写文件的工作流，收尾必须执行 `curl -s http://127.0.0.1:5574/api/validate` 并把 `errors` 清零（有错修复后重跑）；最终报告附校验结果。
 8. **角色纪律**：执行工作流前先加载 `roles/` 下对应角色文件并全程保持该人格——角色定义行为边界，技能定义流程步骤，两者都不可违。
 9. **搁置/恢复主题 = 改 `manifest.json` 的 `status` 字段**（`active | paused`，缺省视为 active）。paused 主题停止学习与复习——卡片不进入学习/复习队列与到期统计，由服务端过滤，你无需处理；其笔记/卡片/历史复习记录与 mastery 一律不动。Web UI 资料库页有搁置/恢复按钮；用户直接对你说"搁置/恢复 xx 主题"时，你直接改该字段。
+10. **错题分工**：`data/mistakes/` 文件由你创建（quiz 错题 / 图片解析），创建时固定 `status: active`、`mastered_at: null`；此后 `status` 与 `mastered_at` 由 Go 服务端经 Web UI 切换，你只读不改。错题原图保存在 `data/mistakes/assets/`（你写入、服务端只读），`image` 字段引用之；不删除任何错题文件与原图。
 
-## 八条工作流
+## 九条工作流
 
 ### W1 导入 `/study:import <inbox 文件名、路径或网页 URL> [topic-slug]`
 
@@ -219,7 +262,8 @@ updated: 2026-09-15
 2. 题型混合：概念解释 / 场景应用 / 对比辨析。
 3. 逐题出题 → 学习者作答 → 你批改（指出对错与原因，不给含糊分数）。
 4. 顺带批改 `recall-log.jsonl` 中未处理的条目（若有，批改后在文件末尾追加一行 `{"card":"…","graded":true,"result":"…","ts":"…"}`——只追加，不改旧行）。
-5. 写会话日志（题目+答案+批改在正文）；按正确率回写 mastery（kind: quiz）。
+5. 每道判错的题写一条 `data/mistakes/<id>.md`（格式见「错题」小节：source: quiz，session 填本次会话 id，question/answer/my_answer/analysis 填全，status: active）。
+6. 写会话日志（题目+答案+批改在正文）；按正确率回写 mastery（kind: quiz）。
 
 ### W6 诊断 `/study:diagnose [topic]`
 
@@ -246,13 +290,26 @@ updated: 2026-09-15
 **角色**：`roles/librarian.md`（导入员）。
 
 1. 与用户确认幸存主题 target 与待并入的源主题 sources；可顺带更新 target manifest 的 name/goal/description。
-2. 迁移归属：把 sources 的全部 `data/notes/*.md`、`data/cards/*.md` frontmatter 的 `topic:` 改为 target slug；id 与文件名不变；**绝不触碰 `fsrs:` 块**（Go 服务端独占）。
+2. 迁移归属：把 sources 的全部 `data/notes/*.md`、`data/cards/*.md`、`data/mistakes/*.md` frontmatter 的 `topic:` 改为 target slug；id 与文件名不变；**绝不触碰 `fsrs:` 块**（Go 服务端独占）；mistakes 的 `status`/`mastered_at` 不动。
 3. 重排笔记 `order`：target 原有笔记保持 1..n，source 笔记按先修关系续排（默认接在 max(order) 之后，可按依赖关系穿插调整）。
 4. `data/library/materials.json`：source 条目的 `topic` 改为 target slug。
 5. `data/progress/mastery.json`：source 条目并入 target——level 取两者最高，evidence 数组合并按日期排序，追加一条 `{"date":<今天>,"kind":"merge","detail":"合并自 <source-slug>","delta":0}`，`updated` 改今天；删除 source 键。target 无条目则以 source 为基础改建。
 6. 计划：source 的 plan.md 若有未完成里程碑，判断哪些仍适用并并入 target 的 plan.md（同步改 `updated`）；`data/plans/master.md` 索引移除 source 链接（同步改 `updated`）。
 7. 历史会话不改动；写本次合并会话 `data/sessions/YYYYMMDD-merge-<target>.md`（type: merge，正文记录迁移清单：多少笔记/卡片/材料、order 重排结果、计划取舍）。
 8. 删除 `data/topics/<source>/` 目录（其内容已全部迁走）；跑 `/api/validate` 清零 errors；报告全部改动文件。
+
+### W9 错题录入 `/study:mistake [topic]`
+
+**角色**：`roles/librarian.md`（导入员）。
+
+1. 用户把错题照片/截图发给你（可多张）。**先把每张原图保存到 `data/mistakes/assets/<错题id>.<原扩展名>`**——题目图、答案/解析图等全部留档（多图分别命名 `<id>.png`、`<id>-a.png`…，全部列入 `images` 列表字段），原图是日后对照的凭据，绝不只解析不留档。
+2. 逐题视觉解析：题目原文、正确答案、（若图中可见）学习者的错误作答；解析不了的题如实报告，不编造。
+3. **确认归属 topic**：错题主题必须同学习主题一致——先列出 `data/topics/` 下现有主题与用户确认归属，**复用现有 slug，不自造近似主题**；只有用户明确要新建主题时才创建 manifest。
+4. **知识点判定**：指出每题考察的知识点/考点（填 `knowledge`），并口头提醒用户该考点的掌握要点。
+5. **解题分析**：写 `solution`（解题思路）与 `hint`（15-40 字重练提示，只给方向不给答案）；**选择题必须写 `option_analysis`**——逐选项说明为什么能选、为什么不能选；每题写 `pitfalls`（易错点分析）。
+6. **联网检索同考点真题**：用网页搜索找权威考试真题或高质量模拟题中考查同一考点的题目，填 `related`（title/url/source/note，note 含官方答案或权威解析要点）。**必须是真实可访问的出处链接；找不到可靠来源就如实告知用户并填 `related: []`，禁止编造链接或答案。**
+7. 去重：与 `data/mistakes/` 现有错题比对，同题不重复录入（有增量就补充进现有文件正文，不动 `status`）。
+8. 每题写一条 `data/mistakes/<id>.md`（格式见「错题」小节）；跑 `/api/validate` 清零 errors；报告产出清单，提醒用户去 Web UI「错题库」页重练。
 
 ## 快速判断
 
@@ -261,6 +318,7 @@ updated: 2026-09-15
 - 用户说"我讲你听 / 费曼 / 检验我理解" → W3
 - 用户问"接下来学什么 / 哪里薄弱" → W6
 - 用户要"考考我 / 测验" → W5
+- 用户给错题图片/截图或说"录入错题" → W9 错题录入
 - 用户说"帮我规划 / 学习计划 / 先学什么 / 排个路线" → W7
 - 用户说"搁置 / 暂停 / 恢复某主题" → 改 manifest.json 的 status（红线 9）
 - 用户说"合并主题" → W8

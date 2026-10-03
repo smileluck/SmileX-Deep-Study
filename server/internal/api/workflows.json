@@ -77,6 +77,17 @@
     "ui_hint": "在「计划」页查看产出的路线图；规划前先跑一次诊断效果更好。"
   },
   {
+    "id": "mistake",
+    "name": "错题录入",
+    "icon": "book-x",
+    "runner": "Harness",
+    "command": "/study:mistake [topic]",
+    "prompt_file": "prompts/mistake.md",
+    "description": "把错题照片/截图发给 harness：保存原图、判定知识点、写解题思路与重练提示、选择题逐选项分析与易错点，并联网检索同考点真题（真实出处链接 + 官方答案）。",
+    "outputs": ["data/mistakes/*.md", "data/mistakes/assets/*"],
+    "ui_hint": "直接把错题图片发给 harness 即可；产出去「错题库」页查看与重练。"
+  },
+  {
     "id": "merge",
     "name": "主题合并",
     "icon": "merge",

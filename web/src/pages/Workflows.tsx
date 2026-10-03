@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
+  BookX,
   FileQuestion,
   GraduationCap,
   Inbox,
@@ -23,6 +24,7 @@ const icons: Record<string, typeof Inbox> = {
   stethoscope: Stethoscope,
   map: Map,
   merge: Merge,
+  'book-x': BookX,
 }
 
 export default function Workflows() {

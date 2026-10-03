@@ -452,6 +452,79 @@ func (s *Store) GetSession(id string) (*Session, error) {
 	return &Session{ID: id, Path: path, FM: fm, Body: body}, nil
 }
 
+// ---------- 错题 ----------
+
+type Mistake struct {
+	ID   string
+	Path string
+	FM   map[string]any
+	Body string
+}
+
+func (s *Store) MistakesDir() string { return filepath.Join(s.DataDir, "mistakes") }
+
+// MistakeAssetsDir 存放错题原图（data/mistakes/assets/<id>.<ext>），由 agent 写入、服务端只读。
+func (s *Store) MistakeAssetsDir() string { return filepath.Join(s.MistakesDir(), "assets") }
+
+func (s *Store) MistakeIDs() ([]string, error) { return IDsIn(s.MistakesDir()) }
+
+func (s *Store) ListMistakes() ([]Mistake, error) {
+	docs, err := s.listDocs(s.MistakesDir())
+	if err != nil {
+		return nil, err
+	}
+	mistakes := make([]Mistake, 0, len(docs))
+	for _, d := range docs {
+		mistakes = append(mistakes, Mistake{ID: d.ID, Path: d.Path, FM: d.FM, Body: d.Body})
+	}
+	return mistakes, nil
+}
+
+func (s *Store) GetMistake(id string) (*Mistake, error) {
+	if !ValidID(id) {
+		return nil, fmt.Errorf("非法错题 id %q: %w", id, ErrInvalidID)
+	}
+	path := filepath.Join(s.MistakesDir(), id+".md")
+	fm, body, err := s.readFM(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("错题 %s 不存在: %w", id, ErrNotFound)
+		}
+		return nil, err
+	}
+	fm["id"] = id
+	return &Mistake{ID: id, Path: path, FM: fm, Body: body}, nil
+}
+
+// SetMistakeStatus 定向重写某错题的 status 与 mastered_at（其余字段与键序不动）。
+// masteredAt 为 nil 时 mastered_at 写回 null。
+func (s *Store) SetMistakeStatus(id, status string, masteredAt *string) error {
+	if !ValidID(id) {
+		return fmt.Errorf("非法错题 id %q: %w", id, ErrInvalidID)
+	}
+	path := filepath.Join(s.MistakesDir(), id+".md")
+	doc, err := s.readDoc(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("错题 %s 不存在: %w", id, ErrNotFound)
+		}
+		return err
+	}
+	doc.UpdateMapping("status", ScalarNode(status))
+	var mNode *yaml.Node
+	if masteredAt != nil {
+		mNode = ScalarNode(*masteredAt)
+	} else {
+		mNode = ScalarNode(nil)
+	}
+	doc.UpdateMapping("mastered_at", mNode)
+	b, err := doc.Bytes()
+	if err != nil {
+		return err
+	}
+	return writeAtomic(path, b)
+}
+
 // ---------- 主题 ----------
 
 func (s *Store) TopicsDir() string { return filepath.Join(s.DataDir, "topics") }

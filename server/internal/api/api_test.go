@@ -209,6 +209,217 @@ func TestReviewQueueExcludesArchivedAndPaused(t *testing.T) {
 	}
 }
 
+// writeMistakeFile 直接落盘一条契约格式的错题。
+func writeMistakeFile(t *testing.T, st *store.Store, id, topic, status, masteredAt string) {
+	t.Helper()
+	if err := os.MkdirAll(st.MistakesDir(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	content := fmt.Sprintf(`---
+id: %s
+topic: %s
+source: quiz
+session: 20261003-quiz-t1
+question: 什么是稳定性？
+answer: |
+  R 衰减到阈值的天数。
+my_answer: 不知道
+analysis: 概念没记住
+status: %s
+created: 2026-10-03
+mastered_at: %s
+---
+`, id, topic, status, masteredAt)
+	if err := os.WriteFile(filepath.Join(st.MistakesDir(), id+".md"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestListMistakesEmpty(t *testing.T) {
+	r, _ := setup(t)
+	code, resp := doJSON(t, r, http.MethodGet, "/api/mistakes", nil)
+	if code != 200 {
+		t.Fatalf("status = %d, body = %s", code, resp)
+	}
+	if !strings.Contains(string(resp), `"mistakes":[]`) {
+		t.Errorf("空错题库应返回空数组而非 null: %s", resp)
+	}
+	var out struct {
+		Mistakes []any `json:"mistakes"`
+		Summary  struct {
+			Active   int `json:"active"`
+			Mastered int `json:"mastered"`
+		} `json:"summary"`
+	}
+	if err := json.Unmarshal(resp, &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.Summary.Active != 0 || out.Summary.Mastered != 0 {
+		t.Errorf("summary = %+v, want 全零", out.Summary)
+	}
+}
+
+func TestListMistakesSummary(t *testing.T) {
+	r, st := setup(t)
+	writeManifest(t, st, "t1", "")
+	writeManifest(t, st, "t2", "")
+	writeMistakeFile(t, st, "m-1", "t1", "active", "null")
+	writeMistakeFile(t, st, "m-2", "t1", "mastered", "2026-10-02")
+	writeMistakeFile(t, st, "m-3", "t2", "active", "null")
+
+	code, resp := doJSON(t, r, http.MethodGet, "/api/mistakes", nil)
+	if code != 200 {
+		t.Fatalf("status = %d, body = %s", code, resp)
+	}
+	var out struct {
+		Mistakes []map[string]any `json:"mistakes"`
+		Summary  struct {
+			Active   int `json:"active"`
+			Mastered int `json:"mastered"`
+			ByTopic  map[string]struct {
+				Active   int `json:"active"`
+				Mastered int `json:"mastered"`
+			} `json:"by_topic"`
+		} `json:"summary"`
+	}
+	if err := json.Unmarshal(resp, &out); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Mistakes) != 3 {
+		t.Fatalf("len(mistakes) = %d, want 3", len(out.Mistakes))
+	}
+	if out.Summary.Active != 2 || out.Summary.Mastered != 1 {
+		t.Errorf("summary = %+v, want active=2 mastered=1", out.Summary)
+	}
+	if out.Summary.ByTopic["t1"].Active != 1 || out.Summary.ByTopic["t1"].Mastered != 1 {
+		t.Errorf("by_topic[t1] = %+v, want active=1 mastered=1", out.Summary.ByTopic["t1"])
+	}
+	if out.Summary.ByTopic["t2"].Active != 1 {
+		t.Errorf("by_topic[t2] = %+v, want active=1", out.Summary.ByTopic["t2"])
+	}
+	for _, m := range out.Mistakes {
+		for _, k := range []string{"id", "topic", "source", "session", "question", "answer", "status", "created"} {
+			if _, ok := m[k]; !ok {
+				t.Errorf("条目缺少字段 %s: %+v", k, m)
+			}
+		}
+	}
+}
+
+func TestSetMistakeStatusAPI(t *testing.T) {
+	r, st := setup(t)
+	writeManifest(t, st, "t1", "")
+	writeMistakeFile(t, st, "m-1", "t1", "active", "null")
+
+	code, resp := doJSON(t, r, http.MethodPost, "/api/mistakes/m-1/status",
+		map[string]any{"status": "mastered"})
+	if code != 200 {
+		t.Fatalf("status = %d, body = %s", code, resp)
+	}
+	var entry map[string]any
+	if err := json.Unmarshal(resp, &entry); err != nil {
+		t.Fatal(err)
+	}
+	if entry["status"] != "mastered" {
+		t.Errorf("返回条目 status = %v", entry["status"])
+	}
+	today := time.Now().Format("2006-01-02")
+	if entry["mastered_at"] != today {
+		t.Errorf("mastered_at = %v, want %s", entry["mastered_at"], today)
+	}
+
+	code, resp = doJSON(t, r, http.MethodPost, "/api/mistakes/m-1/status",
+		map[string]any{"status": "active"})
+	if code != 200 {
+		t.Fatalf("status = %d, body = %s", code, resp)
+	}
+	if err := json.Unmarshal(resp, &entry); err != nil {
+		t.Fatal(err)
+	}
+	if entry["mastered_at"] != nil {
+		t.Errorf("恢复 active 后 mastered_at = %v, want null", entry["mastered_at"])
+	}
+
+	code, _ = doJSON(t, r, http.MethodPost, "/api/mistakes/m-1/status",
+		map[string]any{"status": "bogus"})
+	if code != 400 {
+		t.Errorf("非法 status 应 400, got %d", code)
+	}
+	code, _ = doJSON(t, r, http.MethodPost, "/api/mistakes/ghost/status",
+		map[string]any{"status": "mastered"})
+	if code != 404 {
+		t.Errorf("不存在的错题应 404, got %d", code)
+	}
+}
+
+func TestStatsActiveMistakes(t *testing.T) {
+	r, st := setup(t)
+	writeManifest(t, st, "t1", "")
+	writeMistakeFile(t, st, "m-1", "t1", "active", "null")
+	writeMistakeFile(t, st, "m-2", "t1", "mastered", "2026-10-02")
+
+	code, resp := doJSON(t, r, http.MethodGet, "/api/stats", nil)
+	if code != 200 {
+		t.Fatalf("stats status = %d", code)
+	}
+	var stats struct {
+		ActiveMistakes int `json:"active_mistakes"`
+	}
+	if err := json.Unmarshal(resp, &stats); err != nil {
+		t.Fatal(err)
+	}
+	if stats.ActiveMistakes != 1 {
+		t.Errorf("active_mistakes = %d, want 1", stats.ActiveMistakes)
+	}
+}
+
+func TestValidateMistakes(t *testing.T) {
+	r, st := setup(t)
+	writeManifest(t, st, "t1", "")
+	if err := os.MkdirAll(st.MistakesDir(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	bad := `---
+id: bad-mistake
+topic: ghost-topic
+source: typo
+status: bogus
+created: 10/03/2026
+---
+`
+	if err := os.WriteFile(filepath.Join(st.MistakesDir(), "bad-mistake.md"), []byte(bad), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writeMistakeFile(t, st, "ok-mistake", "t1", "active", "null")
+
+	code, resp := doJSON(t, r, http.MethodGet, "/api/validate", nil)
+	if code != 200 {
+		t.Fatalf("validate status = %d", code)
+	}
+	var out validateResp
+	if err := json.Unmarshal(resp, &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.OK {
+		t.Fatal("违规错题应使 validate 失败")
+	}
+	if out.Checked["mistakes"] != 2 {
+		t.Errorf("checked[mistakes] = %d, want 2", out.Checked["mistakes"])
+	}
+	var issues []string
+	for _, e := range out.Errors {
+		if e.File == "mistakes/bad-mistake.md" {
+			issues = append(issues, e.Issues...)
+		}
+	}
+	joined := strings.Join(issues, ";")
+	for _, want := range []string{"topic", "source", "status", "created", "question"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("报错中应包含 %q 问题: %s", want, joined)
+		}
+	}
+}
+
 func TestValidateCardMissingHint(t *testing.T) {
 	r, st := setup(t)
 	writeManifest(t, st, "t1", "")
@@ -258,5 +469,99 @@ fsrs:
 	}
 	if !found {
 		t.Errorf("validate errors 中未找到 nohint 卡片的 hint 问题: %+v", out.Errors)
+	}
+}
+
+func TestGetMistakeAsset(t *testing.T) {
+	r, st := setup(t)
+	if err := os.MkdirAll(st.MistakeAssetsDir(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	png := []byte{0x89, 'P', 'N', 'G'}
+	if err := os.WriteFile(filepath.Join(st.MistakeAssetsDir(), "m-1.png"), png, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	code, resp := doJSON(t, r, http.MethodGet, "/api/mistakes/asset?name=m-1.png", nil)
+	if code != 200 {
+		t.Fatalf("asset status = %d, body = %s", code, resp)
+	}
+	if !bytes.Equal(resp, png) {
+		t.Errorf("asset 内容不一致: %q", resp)
+	}
+
+	code, _ = doJSON(t, r, http.MethodGet, "/api/mistakes/asset?name=..%2Fm-1.md", nil)
+	if code != 400 {
+		t.Errorf("路径穿越应 400, got %d", code)
+	}
+	code, _ = doJSON(t, r, http.MethodGet, "/api/mistakes/asset?name=ghost.png", nil)
+	if code != 404 {
+		t.Errorf("不存在应 404, got %d", code)
+	}
+	code, _ = doJSON(t, r, http.MethodGet, "/api/mistakes/asset", nil)
+	if code != 400 {
+		t.Errorf("缺 name 应 400, got %d", code)
+	}
+}
+
+func TestValidateMistakeImage(t *testing.T) {
+	r, st := setup(t)
+	writeManifest(t, st, "t1", "")
+	content := `---
+id: m-img
+topic: t1
+source: image
+session: ""
+question: 图中第 3 题
+answer: |
+  42
+status: active
+created: 2026-10-03
+mastered_at: null
+image: assets/m-img.png
+---
+`
+	if err := os.MkdirAll(st.MistakesDir(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(st.MistakesDir(), "m-img.md"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	code, resp := doJSON(t, r, http.MethodGet, "/api/validate", nil)
+	if code != 200 {
+		t.Fatalf("validate status = %d", code)
+	}
+	var out validateResp
+	if err := json.Unmarshal(resp, &out); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, e := range out.Errors {
+		if e.File == "mistakes/m-img.md" {
+			for _, issue := range e.Issues {
+				if strings.Contains(issue, "image") {
+					found = true
+				}
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("image 指向缺失原图应报错: %+v", out.Errors)
+	}
+
+	if err := os.MkdirAll(st.MistakeAssetsDir(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(st.MistakeAssetsDir(), "m-img.png"), []byte("png"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, resp = doJSON(t, r, http.MethodGet, "/api/validate", nil)
+	out = validateResp{}
+	if err := json.Unmarshal(resp, &out); err != nil {
+		t.Fatal(err)
+	}
+	if !out.OK {
+		t.Errorf("补齐原图后 validate 应通过: %+v", out.Errors)
 	}
 }

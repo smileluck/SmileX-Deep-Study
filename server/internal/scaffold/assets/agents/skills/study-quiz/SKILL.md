@@ -20,5 +20,5 @@ description: 检索练习自测：从笔记生成全新题目（不复用复习�
 4. **顺带批改自由回忆**：若 `data/progress/recall-log.jsonl` 有未批改条目（无 graded 标记的行），逐条对照卡片判分，并在文件**末尾追加** `{"card":"…","graded":true,"result":"对/半对/错 + 简评","ts":"…"}`——只追加，绝不改旧行。
 5. 写 `data/sessions/YYYYMMDD-quiz-<topic>.md`（type: quiz）：正文包含每题、答案与批改，**必须含角色要求的成绩表与「正确率：n/N」统计行**。
 6. 掌握度回写（kind: quiz）：正确率 ≥80% 可 +1；≤40% 可 -1；其余不动。evidence 里写「n/N 正确」。
-7. 错题对应的概念 → 建议补卡或安排重学。
+7. 每道判错的题写一条 `data/mistakes/<id>.md`（格式见 AGENTS.md「错题」小节：source: quiz，session 填本次会话 id，question/answer/my_answer/analysis 填全，status: active、mastered_at: null）。错题对应的概念 → 建议补卡或安排重学。
 8. **收尾自检（必须）**：`curl -s http://127.0.0.1:5574/api/validate`，errors 清零后才算完成。

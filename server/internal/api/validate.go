@@ -41,6 +41,10 @@ var evidenceKinds = map[string]bool{
 
 var cardTypes = map[string]bool{"basic": true, "cloze": true}
 
+var mistakeSources = map[string]bool{"quiz": true, "image": true}
+
+var mistakeStatuses = map[string]bool{"active": true, "mastered": true}
+
 func isDate(s string) bool {
 	_, err := time.Parse("2006-01-02", s)
 	return err == nil
@@ -69,7 +73,7 @@ func (a *API) Validate(c *gin.Context) {
 	v := &validator{
 		st:   a.Store,
 		errs: []validationIssue{}, warns: []validationIssue{},
-		checked: map[string]int{"cards": 0, "notes": 0, "sessions": 0, "mastery_topics": 0, "materials": 0, "plans": 0, "manifests": 0},
+		checked: map[string]int{"cards": 0, "notes": 0, "sessions": 0, "mastery_topics": 0, "materials": 0, "plans": 0, "manifests": 0, "mistakes": 0},
 		topics:  map[string]bool{},
 		noteIDs: map[string]bool{},
 	}
@@ -78,6 +82,7 @@ func (a *API) Validate(c *gin.Context) {
 	v.validateNotes()
 	v.validateCards()
 	v.validateSessions()
+	v.validateMistakes()
 	v.validateMastery()
 	v.validatePlans()
 	v.validateMaterials()
@@ -338,6 +343,102 @@ func (v *validator) validateSessions() {
 		}
 		if strings.TrimSpace(sess.Body) == "" {
 			v.warn(rel, "session", "正文为空（应记录对话要点/批改/报告）")
+		}
+	}
+}
+
+// ---------- 错题 ----------
+
+func (v *validator) validateMistakes() {
+	ids, err := v.st.MistakeIDs()
+	if err != nil {
+		v.dirReadErr("mistakes/", "mistake", err)
+		return
+	}
+	for _, id := range ids {
+		v.checked["mistakes"]++
+		rel := "mistakes/" + id + ".md"
+		m, err := v.st.GetMistake(id)
+		if err != nil {
+			v.err(rel, "mistake", []string{"解析失败: " + err.Error()})
+			continue
+		}
+		var issues []string
+		fm := m.FM
+		if s, _ := fm["id"].(string); s != id {
+			issues = append(issues, "frontmatter id 与文件名不一致")
+		}
+		for _, k := range []string{"topic", "source", "question", "answer", "status", "created"} {
+			if s, ok := fm[k].(string); !ok || strings.TrimSpace(s) == "" {
+				issues = append(issues, "缺少或为空字段 "+k)
+			}
+		}
+		if topic, _ := fm["topic"].(string); topic != "" && !v.topics[topic] {
+			issues = append(issues, "topic 无对应主题 manifest: "+topic)
+		}
+		if src, _ := fm["source"].(string); src != "" && !mistakeSources[src] {
+			issues = append(issues, fmt.Sprintf("source 非法: %q（合法 quiz/image）", src))
+		}
+		status, _ := fm["status"].(string)
+		if status != "" && !mistakeStatuses[status] {
+			issues = append(issues, fmt.Sprintf("status 非法: %q（合法 active/mastered）", status))
+		}
+		if d, _ := fm["created"].(string); d != "" && !isDate(d) {
+			issues = append(issues, "created 不是 YYYY-MM-DD")
+		}
+		if s, ok := fm["mastered_at"].(string); ok && s != "" && !isDate(s) {
+			issues = append(issues, "mastered_at 不是 YYYY-MM-DD")
+		}
+		checkAsset := func(field, img string) {
+			base := strings.TrimPrefix(img, "assets/")
+			if img != "assets/"+base || base == "" || strings.ContainsAny(base, `/\`) {
+				issues = append(issues, field+" 必须是 assets/<文件名> 形式: "+img)
+			} else if info, err := os.Stat(filepath.Join(v.st.MistakeAssetsDir(), base)); err != nil || info.IsDir() {
+				issues = append(issues, field+" 指向的原图不存在: "+img)
+			}
+		}
+		if img, _ := fm["image"].(string); img != "" {
+			checkAsset("image", img)
+		}
+		switch imgs := fm["images"].(type) {
+		case []any:
+			for i, e := range imgs {
+				if s, ok := e.(string); ok && s != "" {
+					checkAsset(fmt.Sprintf("images[%d]", i), s)
+				} else {
+					issues = append(issues, fmt.Sprintf("images[%d] 必须是 assets/<文件名> 字符串", i))
+				}
+			}
+		case nil:
+		default:
+			issues = append(issues, "images 必须是列表")
+		}
+		switch rel := fm["related"].(type) {
+		case []any:
+			for i, e := range rel {
+				entry, ok := e.(map[string]any)
+				if !ok {
+					issues = append(issues, fmt.Sprintf("related[%d] 不是对象", i))
+					continue
+				}
+				if s, _ := entry["title"].(string); strings.TrimSpace(s) == "" {
+					issues = append(issues, fmt.Sprintf("related[%d] 缺少或为空字段 title", i))
+				}
+				if u, _ := entry["url"].(string); !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") {
+					issues = append(issues, fmt.Sprintf("related[%d] url 不是 http(s) 链接: %s", i, u))
+				}
+			}
+		case nil:
+		default:
+			issues = append(issues, "related 必须是列表（无相关真题时写 []）")
+		}
+		if len(issues) > 0 {
+			v.err(rel, "mistake", issues)
+		}
+		if status == "mastered" {
+			if s, _ := fm["mastered_at"].(string); s == "" {
+				v.warn(rel, "mistake", "status=mastered 但 mastered_at 为空")
+			}
 		}
 	}
 }

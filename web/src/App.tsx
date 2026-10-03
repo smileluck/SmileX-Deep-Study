@@ -2,6 +2,7 @@ import { NavLink, Route, Routes } from 'react-router-dom'
 import {
   BookOpen,
   BookOpenText,
+  BookX,
   FlaskConical,
   FolderOpen,
   Gauge,
@@ -22,11 +23,13 @@ import QueuePlayer from './pages/Review'
 import Sessions from './pages/Sessions'
 import Workflows from './pages/Workflows'
 import Mastery from './pages/Mastery'
+import Mistakes from './pages/Mistakes'
 
 const nav = [
   { to: '/', label: '仪表盘', icon: Gauge, end: true },
   { to: '/learn', label: '学习', icon: BookOpen, end: false },
   { to: '/review', label: '复习', icon: Repeat, end: false },
+  { to: '/mistakes', label: '错题库', icon: BookX, end: false },
   { to: '/library', label: '资料库', icon: FolderOpen, end: false },
   { to: '/notes', label: '笔记', icon: NotebookPen, end: false },
   { to: '/sessions', label: '会话', icon: ScrollText, end: false },
@@ -35,7 +38,7 @@ const nav = [
   { to: '/mastery', label: '掌握度', icon: Target, end: false },
 ]
 
-function DueBadge({ field }: { field: 'due_now' | 'new_cards' }) {
+function DueBadge({ field }: { field: 'due_now' | 'new_cards' | 'active_mistakes' }) {
   const stats = useStats()
   const due = stats?.[field] ?? 0
   if (!due) return null
@@ -75,6 +78,7 @@ export default function App() {
               {label}
               {to === '/learn' && <DueBadge field="new_cards" />}
               {to === '/review' && <DueBadge field="due_now" />}
+              {to === '/mistakes' && <DueBadge field="active_mistakes" />}
             </NavLink>
           ))}
         </nav>
@@ -94,6 +98,7 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/learn" element={<QueuePlayer mode="learn" />} />
           <Route path="/review" element={<QueuePlayer mode="review" />} />
+          <Route path="/mistakes" element={<Mistakes />} />
           <Route path="/library" element={<Library />} />
           <Route path="/notes" element={<Notes />} />
           <Route path="/notes/:id" element={<Notes />} />

@@ -59,6 +59,10 @@ func Register(r *gin.Engine, st *store.Store, version string) {
 		api.GET("/sessions", a.ListSessions)
 		api.GET("/sessions/:id", a.GetSession)
 
+		api.GET("/mistakes", a.ListMistakes)
+		api.GET("/mistakes/asset", a.GetMistakeAsset)
+		api.POST("/mistakes/:id/status", a.SetMistakeStatus)
+
 		api.GET("/plans", a.GetPlans)
 		api.GET("/plans/:slug", a.GetTopicPlan)
 
@@ -828,6 +832,7 @@ func (a *API) GetStats(c *gin.Context) {
 	}
 	mastery, _ := a.Store.ReadMastery()
 	sessions, _ := a.Store.ListSessions()
+	mistakes, _ := a.Store.ListMistakes()
 	voided := voidedSet(log)
 	paused := a.Store.PausedTopics()
 	now := time.Now()
@@ -908,9 +913,16 @@ func (a *API) GetStats(c *gin.Context) {
 			masterySummary[k] = map[string]any{"level": m["level"], "updated": m["updated"]}
 		}
 	}
+	activeMistakes := 0
+	for _, m := range mistakes {
+		if str(m.FM["status"]) == "active" {
+			activeMistakes++
+		}
+	}
 	c.JSON(200, gin.H{
 		"total_cards": totalCards, "due_now": due, "new_cards": newCards,
 		"reviews_today": reviewsToday, "learned_today": learnedToday, "streak": streak,
 		"heatmap": heatmap, "recent_sessions": recent, "mastery": masterySummary,
+		"active_mistakes": activeMistakes,
 	})
 }

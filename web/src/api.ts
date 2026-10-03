@@ -27,6 +27,7 @@ export interface Stats {
   total_cards: number
   due_now: number
   new_cards: number
+  active_mistakes: number
   reviews_today: number
   learned_today: number
   streak: number
@@ -160,6 +161,37 @@ export interface MasteryResp {
     { level: number; updated: string; evidence?: { date: string; kind: string; detail: string; delta?: number }[] }
   >
   per_topic: Record<string, { cards: number; due: number; new: number; reviews: number; again: number }>
+}
+
+export interface Mistake {
+  id: string
+  topic: string
+  source: 'quiz' | 'image'
+  session?: string
+  question: string
+  answer: string
+  my_answer?: string
+  analysis?: string
+  knowledge?: string
+  solution?: string
+  hint?: string
+  option_analysis?: string
+  pitfalls?: string
+  related?: { title: string; url: string; source?: string; note?: string }[] | null
+  image?: string
+  images?: string[] | null
+  status: 'active' | 'mastered'
+  created: string
+  mastered_at?: string | null
+}
+
+export interface MistakesResp {
+  mistakes: Mistake[] | null
+  summary: {
+    active: number
+    mastered: number
+    by_topic: Record<string, { active: number; mastered: number }>
+  }
 }
 
 // ---------- 工具 ----------

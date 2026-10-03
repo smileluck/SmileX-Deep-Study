@@ -17,6 +17,6 @@
 4. 顺带批改 data/progress/recall-log.jsonl 中未批改的自由回忆答案（若有）：对照卡片判分，在文件末尾追加 {"card":"…","graded":true,"result":"…","ts":"…"}，只追加不改旧行；
 5. 结束后写会话日志 data/sessions/YYYYMMDD-quiz-<topic>.md（type: quiz，正文含每题与批改）；
 6. 按正确率回写 mastery.json（kind: quiz，≥80% 可 +1，≤40% 可 -1，必须附 evidence）；
-7. 错题对应概念给我补卡或重学建议；
+7. 每道判错的题写一条 data/mistakes/<id>.md（AGENTS.md「错题」小节格式：source: quiz，session 填本次会话 id，status: active）；错题对应概念给我补卡或重学建议；
 8. 收尾自检：curl -s http://127.0.0.1:5574/api/validate，errors 清零后才算完成。
 ```
