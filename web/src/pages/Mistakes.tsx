@@ -145,7 +145,7 @@ export default function Mistakes() {
             <div className="flex items-center gap-2 text-xs">
               <span className="badge badge-ghost badge-sm">{topicName[m.topic] ?? m.topic}</span>
               <SourceBadge m={m} />
-              {m.knowledge && <span className="badge badge-info badge-outline badge-sm">{m.knowledge}</span>}
+              {m.knowledge && <span className="text-info/70">知识点：{m.knowledge}</span>}
               <span className="ml-auto opacity-40">{fmtDate(m.created)}</span>
             </div>
             <p className="mt-3 whitespace-pre-wrap text-sm font-medium leading-relaxed">{m.question}</p>
@@ -307,7 +307,7 @@ export default function Mistakes() {
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                         <SourceBadge m={m} />
-                        {m.knowledge && <span className="badge badge-info badge-outline badge-sm">{m.knowledge}</span>}
+                        {m.knowledge && <span className="text-info/70">知识点：{m.knowledge}</span>}
                         <span className={`badge badge-sm ${m.status === 'active' ? 'badge-error badge-outline' : 'badge-success badge-outline'}`}>
                           {m.status === 'active' ? '待攻克' : '已攻克'}
                         </span>
@@ -351,7 +351,7 @@ export default function Mistakes() {
             <div className="flex items-center gap-2 border-b border-base-200 px-6 py-4 text-xs">
               <span className="badge badge-ghost badge-sm">{topicName[selected.topic] ?? selected.topic}</span>
               <SourceBadge m={selected} />
-              {selected.knowledge && <span className="badge badge-info badge-outline badge-sm">{selected.knowledge}</span>}
+              {selected.knowledge && <span className="text-info/70">知识点：{selected.knowledge}</span>}
               <span className={`badge badge-sm ${selected.status === 'active' ? 'badge-error badge-outline' : 'badge-success badge-outline'}`}>
                 {selected.status === 'active' ? '待攻克' : '已攻克'}
               </span>
@@ -430,7 +430,7 @@ function assetUrl(image: string): string {
 
 // 一题可多图（题目图、答案图等）：image 单图字段与 images 列表字段合并
 function mistakeImages(m: Mistake): string[] {
-  return [...(m.image ? [m.image] : []), ...(m.images ?? [])]
+  return [...new Set([...(m.image ? [m.image] : []), ...(m.images ?? [])])]
 }
 
 function MistakeImages({ images, onView }: { images: string[]; onView: (url: string) => void }) {
