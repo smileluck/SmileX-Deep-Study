@@ -642,3 +642,66 @@ fsrs:
 		t.Errorf("learn 队列 = %v, want %v（主题成块 + 块内按笔记 order 递进）", got, want)
 	}
 }
+
+// assets/ 里属于某错题的原图必须全部登记进 image/images，漏登记要报错
+func TestValidateMistakeUnregisteredAsset(t *testing.T) {
+	r, st := setup(t)
+	writeManifest(t, st, "t1", "")
+	content := `---
+id: m-multi
+topic: t1
+source: image
+session: ""
+question: 图中第 5 题
+answer: |
+  略
+status: active
+created: 2026-10-03
+mastered_at: null
+image: assets/m-multi.png
+---
+`
+	if err := os.MkdirAll(st.MistakesDir(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(st.MistakesDir(), "m-multi.md"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(st.MistakeAssetsDir(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"m-multi.png", "m-multi-solution.png"} {
+		if err := os.WriteFile(filepath.Join(st.MistakeAssetsDir(), name), []byte("png"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	getIssues := func() []string {
+		code, resp := doJSON(t, r, http.MethodGet, "/api/validate", nil)
+		if code != 200 {
+			t.Fatalf("validate status = %d", code)
+		}
+		var out validateResp
+		if err := json.Unmarshal(resp, &out); err != nil {
+			t.Fatal(err)
+		}
+		var issues []string
+		for _, e := range out.Errors {
+			if e.File == "mistakes/m-multi.md" {
+				issues = append(issues, e.Issues...)
+			}
+		}
+		return issues
+	}
+
+	// 题干图已登记进 image，解答图只存档未登记 → 只对解答图报"未登记"
+	var unregistered []string
+	for _, issue := range getIssues() {
+		if strings.Contains(issue, "未登记") {
+			unregistered = append(unregistered, issue)
+		}
+	}
+	if len(unregistered) != 1 || !strings.Contains(unregistered[0], "m-multi-solution.png") {
+		t.Fatalf("存档未登记的解答图应报错（且只报它）: %+v", getIssues())
+	}
+}

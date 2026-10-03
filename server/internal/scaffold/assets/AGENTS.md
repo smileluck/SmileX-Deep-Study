@@ -108,7 +108,8 @@ related:                         # 同考点真题/模拟题（W9 联网检索�
     source: 官方考试机构/权威题库
     note: 同一考点，官方答案 B，解析要点……
 image: assets/20261003-quiz-spaced-repetition-1.png   # 题目原图（相对 mistakes/ 的路径）；image 来源必填，quiz 来源可空
-images:                          # 多图时用列表（题目图、答案/解析图等），与 image 合并展示；没有就空数组 []
+images:                          # ★ 必填列表：全部原图逐张列出（题目图、答案/解析图…），不论几张；validate 会检查 assets/ 里该错题的原图是否全部登记
+  - assets/20261003-quiz-spaced-repetition-1.png
   - assets/20261003-quiz-spaced-repetition-1-a.png
 status: active                   # active | mastered
 created: 2026-10-03

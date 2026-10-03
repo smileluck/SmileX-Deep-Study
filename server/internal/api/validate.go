@@ -400,11 +400,16 @@ func (v *validator) validateMistakes() {
 		if img, _ := fm["image"].(string); img != "" {
 			checkAsset("image", img)
 		}
+		registered := map[string]bool{}
+		if img, _ := fm["image"].(string); img != "" {
+			registered[strings.TrimPrefix(img, "assets/")] = true
+		}
 		switch imgs := fm["images"].(type) {
 		case []any:
 			for i, e := range imgs {
 				if s, ok := e.(string); ok && s != "" {
 					checkAsset(fmt.Sprintf("images[%d]", i), s)
+					registered[strings.TrimPrefix(s, "assets/")] = true
 				} else {
 					issues = append(issues, fmt.Sprintf("images[%d] 必须是 assets/<文件名> 字符串", i))
 				}
@@ -412,6 +417,16 @@ func (v *validator) validateMistakes() {
 		case nil:
 		default:
 			issues = append(issues, "images 必须是列表")
+		}
+		// 反向检查：assets/ 里属于该错题的原图必须全部登记进 image/images，
+		// 防止"存了两张图却只登记一张"导致界面上看不到
+		if assets, err := os.ReadDir(v.st.MistakeAssetsDir()); err == nil {
+			for _, a := range assets {
+				if a.IsDir() || !strings.HasPrefix(a.Name(), id) || registered[a.Name()] {
+					continue
+				}
+				issues = append(issues, "原图已存档但未登记到 images: assets/"+a.Name())
+			}
 		}
 		switch rel := fm["related"].(type) {
 		case []any:
